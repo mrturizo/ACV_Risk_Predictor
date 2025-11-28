@@ -43,6 +43,7 @@ class StrokePredictor:
         self.required_columns: List[str] = []
         self.is_pycaret_model = False  # Nuevo atributo para identificar el tipo de modelo
         self.preprocessor = None  # Nuevo atributo para el preprocesador
+        self.preprocessor_path = None  # Ruta del preprocesador cargado
         self.normalization_scaler = None  # StandardScaler extraído del preprocesador
         self.normalization_params = None  # Parámetros de normalización para modelos sklearn
         self._load_model()
@@ -109,6 +110,7 @@ class StrokePredictor:
                         import pickle
                         with open(preprocessor_path, 'rb') as f:
                             self.preprocessor = pickle.load(f)
+                        self.preprocessor_path = preprocessor_path  # Guardar la ruta
                         logger.info(f"✅ Preprocesador cargado desde: {preprocessor_path}")
                         logger.info(f"   Tipo: {type(self.preprocessor).__name__}")
                         
@@ -146,7 +148,8 @@ class StrokePredictor:
                 logger.info("Preprocesador cargado exitosamente")
                 
                 # Verificar y reparar el StandardScaler si no está entrenado (solo si no es el fixed)
-                if 'fixed' not in str(self.preprocessor):
+                # Usar la ruta guardada en lugar de str() para evitar errores de compatibilidad de sklearn
+                if self.preprocessor_path and 'fixed' not in str(self.preprocessor_path):
                     self._fix_preprocessor_scaler()
             else:
                 logger.warning("⚠️ No se encontró el preprocesador. Las predicciones pueden fallar.")

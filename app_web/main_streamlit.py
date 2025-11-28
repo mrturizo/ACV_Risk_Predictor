@@ -6,6 +6,10 @@ import sys
 import pandas as pd
 from datetime import datetime
 import traceback
+import logging
+
+# Configurar logger
+logger = logging.getLogger(__name__)
 
 # Agregar el directorio raíz al path para importar core
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -30,9 +34,9 @@ except ImportError:
     MOCK_AVAILABLE = False
 
 # Configuración de página
-st.set_page_config(
-    page_title="ACV Risk Predictor",
-    page_icon="🏥",
+    st.set_page_config(
+        page_title="ACV Risk Predictor",
+        page_icon="🏥",
     layout="wide",
     initial_sidebar_state="expanded"
 )
