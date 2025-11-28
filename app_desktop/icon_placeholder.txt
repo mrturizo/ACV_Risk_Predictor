@@ -1,0 +1,27 @@
+INSTRUCCIONES PARA CREAR EL ICONO
+
+1. Crear un icono profesional para la aplicación:
+   - Tema: Médico/clínico (cerebro, corazón, símbolo de riesgo, o estetoscopio)
+   - Colores: Azul médico (#1f77b4), blanco, o verde médico
+   - Tamaños necesarios: 16x16, 32x32, 48x48, 64x64, 128x128, 256x256 píxeles
+
+2. Herramientas recomendadas:
+   - Online: https://favicon.io/ o https://www.iconifier.net/
+   - Software: GIMP, Inkscape, Figma, o Adobe Illustrator
+
+3. Guardar como:
+   - icon.ico (formato Windows ICO con múltiples tamaños)
+   - icon.png (versión PNG para referencia, 256x256 o 512x512)
+
+4. Colocar los archivos en: app_desktop/
+   - app_desktop/icon.ico
+   - app_desktop/icon.png
+
+5. El icono se usará en:
+   - El ejecutable (.exe)
+   - El instalador
+   - El acceso directo en Windows
+
+NOTA: Por ahora, puedes usar un icono temporal o dejar este paso para después.
+El código está preparado para usar el icono cuando esté disponible.
+

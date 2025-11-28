@@ -1,0 +1,38 @@
+{
+  "timestamp": "2025-11-27T18:19:04.202678",
+  "models_trained": 4,
+  "results": [
+    {
+      "model_name": "logistic_regression",
+      "balancing_method": "smote",
+      "test_roc_auc": 0.5272399558113844,
+      "test_pr_auc": 0.08721697550440614,
+      "test_recall": 0.2777777777777778,
+      "test_f1": 0.12345679012345678
+    },
+    {
+      "model_name": "random_forest",
+      "balancing_method": "smote",
+      "test_roc_auc": 0.513154834583406,
+      "test_pr_auc": 0.07695557884840327,
+      "test_recall": 0.018518518518518517,
+      "test_f1": 0.02631578947368421
+    },
+    {
+      "model_name": "gradient_boosting",
+      "balancing_method": "smote",
+      "test_roc_auc": 0.5715739287167858,
+      "test_pr_auc": 0.10449704842827645,
+      "test_recall": 0.018518518518518517,
+      "test_f1": 0.03333333333333333
+    },
+    {
+      "model_name": "naive_bayes",
+      "balancing_method": "smote",
+      "test_roc_auc": 0.5073550787836503,
+      "test_pr_auc": 0.08495608076577801,
+      "test_recall": 0.5,
+      "test_f1": 0.13989637305699482
+    }
+  ]
+}

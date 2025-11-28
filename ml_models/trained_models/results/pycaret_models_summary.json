@@ -1,0 +1,26 @@
+{
+  "timestamp": "2025-11-27T19:36:01.859200",
+  "models_trained": 7,
+  "model_results": [
+    {
+      "model_name": "RandomForestClassifier",
+      "model_file": "C:\\Users\\andre\\Documents\\ACV_Risk_Predictor\\ml_models\\trained_models\\pycaret_randomforestclassifier.pkl"
+    },
+    {
+      "model_name": "GradientBoostingClassifier",
+      "model_file": "C:\\Users\\andre\\Documents\\ACV_Risk_Predictor\\ml_models\\trained_models\\pycaret_gradientboostingclassifier.pkl"
+    },
+    {
+      "model_name": "ExtraTreesClassifier",
+      "model_file": "C:\\Users\\andre\\Documents\\ACV_Risk_Predictor\\ml_models\\trained_models\\pycaret_extratreesclassifier.pkl"
+    },
+    {
+      "model_name": "LogisticRegression",
+      "model_file": "C:\\Users\\andre\\Documents\\ACV_Risk_Predictor\\ml_models\\trained_models\\pycaret_logisticregression.pkl"
+    },
+    {
+      "model_name": "LGBMClassifier",
+      "model_file": "C:\\Users\\andre\\Documents\\ACV_Risk_Predictor\\ml_models\\trained_models\\pycaret_lgbmclassifier.pkl"
+    }
+  ]
+}

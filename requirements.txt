@@ -1,0 +1,27 @@
+# Dependencias del Proyecto ACV Risk Predictor
+
+# Machine Learning
+pycaret[full]>=3.0.0
+
+# Interfaz Web
+streamlit>=1.28.0
+
+# Procesamiento de Datos
+pandas>=2.0.0
+numpy>=1.24.0
+openpyxl>=3.1.0  # Para leer Excel
+
+# Generación de Reportes PDF
+reportlab>=4.0.0
+fpdf  # Fallback si ReportLab no funciona (versión disponible: 1.7.2)
+
+# Visualización
+plotly>=5.17.0
+matplotlib>=3.7.0
+
+# Utilidades
+python-dotenv>=1.0.0
+pathlib2>=2.3.7; python_version < '3.4'
+
+# Compilación (solo para desarrollo)
+pyinstaller>=5.0.0; sys_platform == "win32" or sys_platform == "linux"

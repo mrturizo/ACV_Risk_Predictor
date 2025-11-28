@@ -1,0 +1,123 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+venv/
+ENV/
+env/
+.venv
+env.bak/
+venv.bak/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb_checkpoints
+
+# PyCharm
+.idea/
+
+# Proyecto específico - Datos y Modelos
+data/uploads/*
+data/outputs/*
+!data/uploads/.gitkeep
+!data/outputs/.gitkeep
+
+# Modelos (excluir modelos grandes, pero mantener estructura)
+models/*.pkl
+!models/.gitkeep
+ml_models/trained_models/*.pkl
+ml_models/data/raw/*.csv
+ml_models/data/processed/*.csv
+ml_models/data/splits/*.csv
+
+# Archivos temporales de diagnóstico y pruebas
+debug_*.py
+test_*.py
+verify_*.py
+check_*.py
+fix_*.py
+validate_*.py
+*_diagnostico_*/
+resulst_diagnostico_*/
+
+# Logs
+logs/
+*.log
+logs.log
+
+# CatBoost
+catboost_info/
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Compilación y distribución
+app_desktop/build/
+app_desktop/dist/
+*.exe
+*.msi
+*.pkg
+*.dmg
+*.spec.bak
+
+# Archivos temporales
+*.tmp
+*.temp
+*.bak
+*.swp
+*~
+
+# Archivos de configuración local
+.env
+.env.local
+config.local.py
+
+# Archivos de backup
+*.backup
+backup/
+
+# Archivos temporales de desarrollo
+nuevos archivos temporal/
+temp/
+tmp/

@@ -1,0 +1,10 @@
+{
+  "model_name": "naive_bayes_smote",
+  "source": "sklearn",
+  "metrics": {
+    "recall": 0.5,
+    "f1": 0.1399,
+    "roc_auc": 0.5074,
+    "pr_auc": 0.085
+  }
+}

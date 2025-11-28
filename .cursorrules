@@ -1,0 +1,138 @@
+# Reglas de Comportamiento para Cursor - Proyecto ACV Risk Predictor
+
+## Contexto del Proyecto
+
+Aplicación dual (Web y Escritorio) para predicción de riesgo de ACV (Accidente Cerebrovascular) usando Machine Learning.
+
+- **Stack Web**: Python 3.9, Streamlit, Docker
+- **Stack Escritorio**: Python 3.9, Tkinter, InnoSetup
+- **ML Core**: PyCaret (Modelos de clasificación)
+- **Reportes**: ReportLab (primera opción), FPDF (fallback)
+- **Formatos de Datos**: CSV, Excel (.xlsx), JSON
+
+## Arquitectura: El Núcleo Compartido
+
+### REGLA CRÍTICA: Separación de Responsabilidades
+
+- **`core/`**: Contiene TODA la lógica de negocio:
+  - Carga y predicción con modelos PyCaret
+  - Preprocesamiento y validación de datos
+  - Generación de reportes PDF
+  - Utilidades y funciones auxiliares
+
+- **`app_web/`**: SOLO interfaz Streamlit. NO debe contener lógica de negocio.
+  - Solo importa y llama funciones de `core/`
+  - Maneja UI, carga de archivos, visualización
+
+- **`app_desktop/`**: SOLO interfaz Tkinter. NO debe contener lógica de negocio.
+  - Solo importa y llama funciones de `core/`
+  - Maneja UI, carga de archivos, visualización
+
+### NUNCA hacer esto:
+- ❌ Escribir lógica de predicción dentro de `app_web/` o `app_desktop/`
+- ❌ Duplicar código entre `app_web/` y `app_desktop/`
+- ❌ Hardcodear rutas de archivos (usar `pathlib.Path`)
+
+### SIEMPRE hacer esto:
+- ✅ Importar funciones desde `core/` en las interfaces
+- ✅ Usar Type Hints en todas las funciones
+- ✅ Documentar con Docstrings estilo Google en español
+- ✅ Validar inputs antes de pasar al modelo
+- ✅ Manejar errores con try/except robustos
+
+## Estilo de Código
+
+### Type Hints
+```python
+def predict_risk(data: pd.DataFrame) -> Dict[str, Any]:
+    """Predice el riesgo de ACV."""
+    pass
+```
+
+### Docstrings (Estilo Google, en español)
+```python
+def load_model(model_path: Path) -> Any:
+    """Carga un modelo PyCaret desde un archivo .pkl.
+    
+    Args:
+        model_path: Ruta al archivo .pkl del modelo entrenado.
+        
+    Returns:
+        Modelo cargado de PyCaret.
+        
+    Raises:
+        FileNotFoundError: Si el archivo del modelo no existe.
+        ValueError: Si el archivo no es un modelo válido de PyCaret.
+    """
+    pass
+```
+
+### Manejo de Errores
+- Usar try/except específicos (no `except Exception:` genérico)
+- Proporcionar mensajes de error claros en español
+- Logging para debugging (usar `logging` module)
+
+## Stack Tecnológico
+
+### PyCaret
+- Usar `load_model()` y `predict_model()` de `pycaret.classification`
+- Los modelos se guardan en `models/` como archivos `.pkl`
+- La estructura de campos se adapta dinámicamente al modelo cargado
+
+### Reportes PDF
+- **Primera opción**: ReportLab (`reportlab`)
+- **Fallback**: FPDF (`fpdf`) si ReportLab falla o es demasiado complejo
+- Los reportes incluyen: datos ingresados, predicción, influencia de variables, recomendaciones
+
+### Formatos de Archivo
+- **CSV**: Usar `pandas.read_csv()`
+- **Excel**: Usar `pandas.read_excel()` con `openpyxl`
+- **JSON**: Usar `pandas.read_json()` o `json.load()`
+
+### Paths y Rutas
+- Usar `pathlib.Path` para todas las rutas
+- No usar strings hardcodeadas como `"C:\\Users\\..."` o `"/home/..."`
+- Usar rutas relativas desde la raíz del proyecto cuando sea posible
+
+## Flujo de Trabajo de Desarrollo
+
+1. **Implementar lógica en `core/`** primero
+2. **Crear pruebas unitarias en `tests/`** para validar la lógica
+3. **Implementar UI Web** (`app_web/main_streamlit.py`)
+4. **Implementar UI Escritorio** (`app_desktop/main_tkinter.py`)
+
+## Validación de Datos
+
+- Validar que los campos requeridos estén presentes
+- Validar tipos de datos (int, float, str, bool)
+- Validar rangos de valores cuando aplique
+- La estructura de campos debe ser flexible y configurable (JSON/dict)
+- Adaptarse dinámicamente a las columnas esperadas por el modelo
+
+## Convenciones de Nombres
+
+- **Clases**: PascalCase (`StrokePredictor`, `ReportGenerator`)
+- **Funciones**: snake_case (`predict_risk`, `load_model`)
+- **Variables**: snake_case (`user_data`, `model_path`)
+- **Constantes**: UPPER_SNAKE_CASE (`DEFAULT_MODEL_PATH`, `MAX_FILE_SIZE`)
+
+## Estructura de Archivos Esperada
+
+```
+ACV_Risk_Predictor/
+├── core/              # Lógica compartida
+├── app_web/           # Interfaz Streamlit
+├── app_desktop/       # Interfaz Tkinter
+├── models/            # Modelos .pkl
+├── data/              # Datos temporales
+└── tests/             # Pruebas unitarias
+```
+
+## Notas Importantes
+
+- El modelo se carga una vez al inicio de la aplicación
+- Los datos de entrada pueden venir de archivo o formulario manual
+- La predicción debe ser clara: "STROKE RISK" o "NOT STROKE RISK"
+- El reporte PDF debe ser exportable y legible
+- Mantener compatibilidad Windows (escritorio) y Linux (Docker)
+

@@ -1,0 +1,5 @@
+# Esta carpeta contendrá los datos para entrenamiento
+# - raw/: Datos crudos
+# - processed/: Datos procesados
+# - splits/: Train/Test splits
+

@@ -1,0 +1,18 @@
+# Modelos entrenados (se copian a models/ para producción)
+trained_models/*.pkl
+trained_models/*.pkl.pkl
+
+# Datos
+data/raw/*
+data/processed/*
+data/splits/*
+!data/.gitkeep
+
+# Notebooks con outputs
+notebooks/.ipynb_checkpoints/
+notebooks/*.html
+
+# Logs
+*.log
+
+
