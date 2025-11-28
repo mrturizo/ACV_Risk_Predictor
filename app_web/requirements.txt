@@ -1,9 +1,10 @@
 # Streamlit Web App Requirements
 # Para deploy en Streamlit Cloud
+# Compatible con Python 3.11+ (especificado en runtime.txt)
 
 streamlit>=1.28.0
-pandas>=1.5.0
-numpy>=1.23.0
+pandas>=2.2.0,<2.4.0
+numpy>=1.26.0,<2.0.0
 scikit-learn>=1.2.0
 pycaret>=3.0.0
 plotly>=5.14.0
