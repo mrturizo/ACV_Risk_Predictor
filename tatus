@@ -1,0 +1,14 @@
+warning: in the working copy of 'app_desktop/ACV_Risk_Predictor.spec', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app_desktop/installer_script.iss', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app_desktop/main_tkinter.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'core/__init__.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'core/profiles.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'core/utils.py', LF will be replaced by CRLF the next time Git touches it
+.streamlit/config.toml
+app_desktop/ACV_Risk_Predictor.spec
+app_desktop/LICENSE.txt
+app_desktop/icon.ico
+app_desktop/icon.png
+app_desktop/installer_script.iss
+app_desktop/main_tkinter.py
+app_web/Dockerfile

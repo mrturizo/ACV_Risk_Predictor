@@ -114,5 +114,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=str(spec_dir / 'icon.ico') if (spec_dir / 'icon.ico').exists() else None,  # Icono de la aplicación
+    icon=str(spec_dir / 'icon.ico') if (spec_dir / 'icon.ico').exists() else None,  # Icono de la aplicación (acv_app_icon.ico)
 )

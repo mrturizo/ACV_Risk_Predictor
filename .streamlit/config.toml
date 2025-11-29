@@ -1,18 +1,21 @@
 # Configuración de Streamlit para la aplicación web
 
-[theme]
-primaryColor = "#1f77b4"
-backgroundColor = "#ffffff"
-secondaryBackgroundColor = "#f0f2f6"
-textColor = "#262730"
-font = "sans serif"
-
 [server]
-headless = true
 port = 8501
+address = "0.0.0.0"
 enableCORS = false
 enableXsrfProtection = true
 
 [browser]
 gatherUsageStats = false
 
+[theme]
+primaryColor = "#2563eb"
+backgroundColor = "#f0f4f8"
+secondaryBackgroundColor = "#ffffff"
+textColor = "#1e293b"
+font = "sans serif"
+
+[ui]
+hideTopBar = false
+hideSidebarNav = false

@@ -9,8 +9,8 @@ AppPublisher=mrturizo
 AppPublisherURL=https://github.com/mrturizo/ACV_Risk_Predictor
 AppSupportURL=https://github.com/mrturizo/ACV_Risk_Predictor/issues
 AppUpdatesURL=https://github.com/mrturizo/ACV_Risk_Predictor/releases
-AppCopyright=Copyright (C) 2024 mrturizo
-DefaultDirName={pf}\ACV_Risk_Predictor
+AppCopyright=Copyright (C) 2025 ACV Risk Predictor Contributors
+DefaultDirName={commonpf}\ACV_Risk_Predictor
 DefaultGroupName=ACV Risk Predictor
 AllowNoIcons=yes
 LicenseFile=LICENSE.txt
@@ -20,17 +20,17 @@ OutputBaseFilename=ACV_Risk_Predictor_Setup_v1.0.0
 Compression=lzma2
 SolidCompression=yes
 PrivilegesRequired=admin
-ArchitecturesInstallIn64BitMode=x64
+ArchitecturesInstallIn64BitMode=x64compatible
 WizardStyle=modern
 
-; Icono del instalador (usar el mismo que la app si está disponible)
+; Icono del instalador (usar el nuevo icono acv_app_icon.ico)
 SetupIconFile=icon.ico
 
 ; Información de versión
 VersionInfoVersion=1.0.0
 VersionInfoCompany=mrturizo
 VersionInfoDescription=Sistema de predicción de riesgo de Accidente Cerebrovascular (ACV) basado en Machine Learning. Permite evaluar el riesgo de ACV mediante datos clínicos, demográficos y biomédicos.
-VersionInfoCopyright=Copyright (C) 2024 mrturizo
+VersionInfoCopyright=Copyright (C) 2025 ACV Risk Predictor Contributors
 VersionInfoProductName=ACV Risk Predictor
 VersionInfoProductVersion=1.0.0
 
@@ -40,7 +40,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
-Name: "quicklaunchicon"; Description: "{cm:CreateQuickLaunchIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked; OnlyBelowVersion: 6.1; Check: not IsAdminInstallMode
+Name: "quicklaunchicon"; Description: "{cm:CreateQuickLaunchIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked; Check: not IsAdminInstallMode
 
 [Files]
 ; Archivo ejecutable principal
@@ -61,7 +61,8 @@ Name: "{group}\{cm:UninstallProgram,ACV Risk Predictor}"; Filename: "{uninstalle
 Name: "{autodesktop}\ACV Risk Predictor"; Filename: "{app}\ACV_Risk_Predictor.exe"; Tasks: desktopicon; IconFilename: "{app}\ACV_Risk_Predictor.exe"
 
 ; Icono en la barra de inicio rápido (opcional, según tarea)
-Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\ACV Risk Predictor"; Filename: "{app}\ACV_Risk_Predictor.exe"; Tasks: quicklaunchicon; IconFilename: "{app}\ACV_Risk_Predictor.exe"
+; Nota: Quick Launch ya no es común en Windows moderno, se mantiene por compatibilidad
+Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\ACV Risk Predictor"; Filename: "{app}\ACV_Risk_Predictor.exe"; Tasks: quicklaunchicon; IconFilename: "{app}\ACV_Risk_Predictor.exe"; Check: not IsAdminInstallMode
 
 [Run]
 ; Opción para ejecutar la aplicación después de la instalación

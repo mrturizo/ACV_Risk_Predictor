@@ -1,6 +1,14 @@
 MIT License
 
-Copyright (c) 2024 ACV Risk Predictor Contributors
+Copyright (c) 2025 ACV Risk Predictor Contributors
+
+Authors:
+- David Caicedo Samboní
+- Ktalyna García Benavides
+- Ruben Darío Salcedo Ramirez
+- Juan Esteban Espitia Forero
+- Daniel Fernando Mejia Mendoza
+- Martin de Jesús Romero Turizo
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -20,7 +28,12 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
+---
+
 NOTA IMPORTANTE:
 Esta aplicación es una herramienta de apoyo y no reemplaza el diagnóstico médico profesional.
 Siempre consulte con un profesional de la salud para decisiones médicas importantes.
 
+Los resultados de predicción proporcionados por esta aplicación son estimaciones basadas en modelos
+de Machine Learning y no constituyen un diagnóstico médico. El uso de esta aplicación es bajo su
+propia responsabilidad y riesgo.
