@@ -361,23 +361,52 @@ class StrokePredictor:
                     if not PYCARET_AVAILABLE:
                         _create_pycaret_mocks()
                     import pickle
-                    with open(self.model_path, "rb") as f:
-                        loaded_obj = pickle.load(f)
                     
-                    # Manejar diccionarios o múltiples objetos
-                    if isinstance(loaded_obj, dict):
-                        logger.info(f"Archivo contiene diccionario con {len(loaded_obj)} claves: {list(loaded_obj.keys())[:5]}")
-                        for key in ['model', 'pipeline', 'estimator', 'final_model', 'best_model']:
-                            if key in loaded_obj:
-                                loaded_obj = loaded_obj[key]
-                                logger.info(f"Modelo encontrado en clave '{key}': {type(loaded_obj)}")
-                                break
-                        if isinstance(loaded_obj, dict):
-                            for key, value in loaded_obj.items():
-                                if hasattr(value, 'predict') or hasattr(value, 'predict_proba'):
-                                    loaded_obj = value
-                                    logger.info(f"Modelo encontrado en clave '{key}': {type(loaded_obj)}")
+                    # CRÍTICO: El archivo puede contener múltiples objetos serializados
+                    # Intentar cargar todos los objetos hasta encontrar uno válido
+                    loaded_obj = None
+                    with open(self.model_path, "rb") as f:
+                        objects_loaded = []
+                        try:
+                            # Intentar cargar todos los objetos del archivo
+                            while True:
+                                try:
+                                    obj = pickle.load(f)
+                                    objects_loaded.append(obj)
+                                    logger.info(f"Objeto {len(objects_loaded)} cargado: {type(obj)}")
+                                except EOFError:
+                                    logger.info(f"Fin del archivo. Total de objetos cargados: {len(objects_loaded)}")
                                     break
+                        except Exception as e:
+                            logger.warning(f"Error al cargar objetos: {e}")
+                        
+                        # Buscar el primer objeto que tenga métodos predict/predict_proba o sea un Pipeline
+                        for i, obj in enumerate(objects_loaded):
+                            if hasattr(obj, 'steps') or hasattr(obj, 'named_steps'):
+                                loaded_obj = obj
+                                logger.info(f"✅ Usando objeto {i+1}/{len(objects_loaded)} (tiene steps/named_steps): {type(loaded_obj)}")
+                                break
+                            elif hasattr(obj, 'predict') or hasattr(obj, 'predict_proba'):
+                                loaded_obj = obj
+                                logger.info(f"✅ Usando objeto {i+1}/{len(objects_loaded)} (tiene métodos predict): {type(loaded_obj)}")
+                                break
+                            elif isinstance(obj, dict):
+                                # Si es un diccionario, buscar dentro
+                                for key in ['model', 'pipeline', 'estimator', 'final_model', 'best_model']:
+                                    if key in obj and (hasattr(obj[key], 'predict') or hasattr(obj[key], 'predict_proba') or hasattr(obj[key], 'steps')):
+                                        loaded_obj = obj[key]
+                                        logger.info(f"✅ Usando objeto {i+1}/{len(objects_loaded)} en clave '{key}': {type(loaded_obj)}")
+                                        break
+                                if loaded_obj is not None:
+                                    break
+                        
+                        # Si no se encontró ningún objeto válido, usar el último (puede ser el Pipeline)
+                        if loaded_obj is None and objects_loaded:
+                            logger.warning("No se encontró objeto con métodos predict, usando el último objeto cargado")
+                            loaded_obj = objects_loaded[-1]
+                    
+                    if loaded_obj is None:
+                        raise ValueError("No se pudo cargar ningún objeto válido del archivo")
                     
                     self.model = loaded_obj
                     logger.info("Modelo cargado con pickle.load() después de recrear mocks")
@@ -385,23 +414,52 @@ class StrokePredictor:
                     # Si es otro error de importación, intentar con pickle
                     logger.warning(f"Fallo joblib.load({self.model_path}): {import_err}. Probando con pickle.load()...")
                     import pickle
-                    with open(self.model_path, "rb") as f:
-                        loaded_obj = pickle.load(f)
                     
-                    # Manejar diccionarios o múltiples objetos
-                    if isinstance(loaded_obj, dict):
-                        logger.info(f"Archivo contiene diccionario con {len(loaded_obj)} claves: {list(loaded_obj.keys())[:5]}")
-                        for key in ['model', 'pipeline', 'estimator', 'final_model', 'best_model']:
-                            if key in loaded_obj:
-                                loaded_obj = loaded_obj[key]
-                                logger.info(f"Modelo encontrado en clave '{key}': {type(loaded_obj)}")
-                                break
-                        if isinstance(loaded_obj, dict):
-                            for key, value in loaded_obj.items():
-                                if hasattr(value, 'predict') or hasattr(value, 'predict_proba'):
-                                    loaded_obj = value
-                                    logger.info(f"Modelo encontrado en clave '{key}': {type(loaded_obj)}")
+                    # CRÍTICO: El archivo puede contener múltiples objetos serializados
+                    # Intentar cargar todos los objetos hasta encontrar uno válido
+                    loaded_obj = None
+                    with open(self.model_path, "rb") as f:
+                        objects_loaded = []
+                        try:
+                            # Intentar cargar todos los objetos del archivo
+                            while True:
+                                try:
+                                    obj = pickle.load(f)
+                                    objects_loaded.append(obj)
+                                    logger.info(f"Objeto {len(objects_loaded)} cargado: {type(obj)}")
+                                except EOFError:
+                                    logger.info(f"Fin del archivo. Total de objetos cargados: {len(objects_loaded)}")
                                     break
+                        except Exception as e:
+                            logger.warning(f"Error al cargar objetos: {e}")
+                        
+                        # Buscar el primer objeto que tenga métodos predict/predict_proba o sea un Pipeline
+                        for i, obj in enumerate(objects_loaded):
+                            if hasattr(obj, 'steps') or hasattr(obj, 'named_steps'):
+                                loaded_obj = obj
+                                logger.info(f"✅ Usando objeto {i+1}/{len(objects_loaded)} (tiene steps/named_steps): {type(loaded_obj)}")
+                                break
+                            elif hasattr(obj, 'predict') or hasattr(obj, 'predict_proba'):
+                                loaded_obj = obj
+                                logger.info(f"✅ Usando objeto {i+1}/{len(objects_loaded)} (tiene métodos predict): {type(loaded_obj)}")
+                                break
+                            elif isinstance(obj, dict):
+                                # Si es un diccionario, buscar dentro
+                                for key in ['model', 'pipeline', 'estimator', 'final_model', 'best_model']:
+                                    if key in obj and (hasattr(obj[key], 'predict') or hasattr(obj[key], 'predict_proba') or hasattr(obj[key], 'steps')):
+                                        loaded_obj = obj[key]
+                                        logger.info(f"✅ Usando objeto {i+1}/{len(objects_loaded)} en clave '{key}': {type(loaded_obj)}")
+                                        break
+                                if loaded_obj is not None:
+                                    break
+                        
+                        # Si no se encontró ningún objeto válido, usar el último (puede ser el Pipeline)
+                        if loaded_obj is None and objects_loaded:
+                            logger.warning("No se encontró objeto con métodos predict, usando el último objeto cargado")
+                            loaded_obj = objects_loaded[-1]
+                    
+                    if loaded_obj is None:
+                        raise ValueError("No se pudo cargar ningún objeto válido del archivo")
                     
                     self.model = loaded_obj
                     logger.info("Modelo cargado con pickle.load()")
