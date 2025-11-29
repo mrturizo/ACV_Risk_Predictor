@@ -103,6 +103,41 @@ def _create_pycaret_mocks():
         pycaret_preprocess_mock.Imputer = MockImputer
         pycaret_preprocess_mock.Scaler = MockScaler
     
+    # CRÍTICO: Crear pycaret.internal.preprocess.transformers con TransformerWrapper
+    # Este es el módulo específico que pickle está buscando
+    if 'pycaret.internal.preprocess.transformers' not in sys.modules:
+        transformers_mock = types.ModuleType('pycaret.internal.preprocess.transformers')
+        sys.modules['pycaret.internal.preprocess.transformers'] = transformers_mock
+        
+        # CRÍTICO: Crear TransformerWrapper - esta es la clase que pickle está buscando
+        class TransformerWrapper:
+            """Clase mock para TransformerWrapper de PyCaret.
+            
+            Esta clase es usada por PyCaret para envolver transformadores de sklearn.
+            No necesita implementación real, solo existir para que pickle pueda deserializar.
+            """
+            def __init__(self, *args, **kwargs):
+                """Constructor mock - acepta cualquier argumento."""
+                pass
+            
+            def __getstate__(self):
+                """Para compatibilidad con pickle."""
+                return {}
+            
+            def __setstate__(self, state):
+                """Para compatibilidad con pickle."""
+                pass
+        
+        # Asignar TransformerWrapper al módulo
+        transformers_mock.TransformerWrapper = TransformerWrapper
+        
+        # También agregar otras clases comunes que pueden ser buscadas
+        class MockTransformer:
+            """Clase mock genérica para Transformer."""
+            pass
+        
+        transformers_mock.Transformer = MockTransformer
+    
     # Crear módulo mock para pycaret.internal.pipeline
     if 'pycaret.internal.pipeline' not in sys.modules:
         pycaret_pipeline_mock = types.ModuleType('pycaret.internal.pipeline')
@@ -152,7 +187,7 @@ def _create_pycaret_mocks():
                 pass
             
             # Agregar algunas clases comunes que pickle puede buscar
-            for class_name in ['Transformer', 'Preprocessor', 'Imputer', 'Scaler', 'Pipeline']:
+            for class_name in ['Transformer', 'Preprocessor', 'Imputer', 'Scaler', 'Pipeline', 'TransformerWrapper']:
                 if not hasattr(mock_module, class_name):
                     setattr(mock_module, class_name, MockClass)
     
