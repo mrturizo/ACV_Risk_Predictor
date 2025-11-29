@@ -75,7 +75,7 @@ def _get_paciente_sano() -> Dict[str, Any]:
         
         # Demográficas
         'gender': 1,  # Masculino (1) o Femenino (2) - usando 1 como default
-        'age': 2,  # Grupo de edad medio (1=grupo joven, 2=adulto, 3=mayor)
+        'age': 35,  # Edad adulta joven (será normalizada a rango 0-3 automáticamente)
         'Race': 3,  # Raza (valores: 1-5)
         'Marital status': 1,  # Estado civil (valores: 1-6)
         
@@ -129,7 +129,7 @@ def _get_paciente_factores_riesgo() -> Dict[str, Any]:
         
         # Demográficas
         'gender': 1,
-        'age': 3,  # Grupo de edad mayor (1=grupo joven, 2=adulto, 3=mayor)
+        'age': 55,  # Edad adulta media (será normalizada a rango 0-3 automáticamente)
         'Race': 3,
         'Marital status': 1,
         
@@ -183,7 +183,7 @@ def _get_paciente_comorbilidades() -> Dict[str, Any]:
         
         # Demográficas
         'gender': 1,
-        'age': 3,  # Grupo de edad mayor (1=grupo joven, 2=adulto, 3=mayor)
+        'age': 70,  # Edad mayor (será normalizada a rango 0-3 automáticamente)
         'Race': 3,
         'Marital status': 1,
         
