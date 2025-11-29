@@ -55,6 +55,7 @@ data/outputs/*
 # Modelos (excluir modelos grandes, pero mantener estructura)
 models/*.pkl
 !models/lr_pca25_cw.pkl  # Permitir el modelo final
+!models/lr_pca25_cw_sklearn.pkl  # Permitir el modelo convertido (sklearn puro)
 !models/preprocessor_acv.pkl  # Permitir el preprocesador
 !models/.gitkeep
 ml_models/trained_models/*.pkl
