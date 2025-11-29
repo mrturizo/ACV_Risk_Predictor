@@ -814,6 +814,44 @@ class StrokePredictor:
                 # Aplicar preprocesador completo
                 logger.info("🔧 Aplicando preprocesador completo a los datos de entrada...")
                 try:
+                    # PARCHE DE COMPATIBILIDAD: Agregar atributo faltante para versiones nuevas de scikit-learn
+                    # El modelo fue entrenado con una versión antigua que no tiene _name_to_fitted_passthrough
+                    from sklearn.compose import ColumnTransformer
+                    if isinstance(self.preprocessor, ColumnTransformer):
+                        if not hasattr(self.preprocessor, '_name_to_fitted_passthrough'):
+                            # Crear el atributo faltante basado en los transformers
+                            # Este atributo mapea nombres de columnas a nombres de transformers para 'passthrough'
+                            self.preprocessor._name_to_fitted_passthrough = {}
+                            
+                            # Obtener todas las columnas de entrada
+                            if hasattr(self.preprocessor, 'feature_names_in_'):
+                                all_input_cols = list(self.preprocessor.feature_names_in_)
+                            else:
+                                # Fallback: intentar obtener de los transformers
+                                all_input_cols = []
+                                for name, transformer, columns in self.preprocessor.transformers:
+                                    if isinstance(columns, list):
+                                        all_input_cols.extend(columns)
+                                    elif isinstance(columns, slice):
+                                        # Para slices, necesitamos un rango
+                                        all_input_cols.extend([f'col_{i}' for i in range(columns.start or 0, columns.stop or 0)])
+                            
+                            # Mapear columnas passthrough
+                            for name, transformer, columns in self.preprocessor.transformers:
+                                if transformer == 'passthrough':
+                                    if isinstance(columns, list):
+                                        for col in columns:
+                                            if col in all_input_cols:
+                                                self.preprocessor._name_to_fitted_passthrough[col] = name
+                                    elif isinstance(columns, slice):
+                                        # Para slices, mapear todas las columnas en el rango
+                                        if hasattr(self.preprocessor, 'feature_names_in_'):
+                                            slice_cols = all_input_cols[columns]
+                                            for col in slice_cols:
+                                                self.preprocessor._name_to_fitted_passthrough[col] = name
+                            
+                            logger.info(f"✅ Parche de compatibilidad aplicado: _name_to_fitted_passthrough con {len(self.preprocessor._name_to_fitted_passthrough)} entradas")
+                    
                     # Asegurar que tenemos todas las columnas que el preprocesador espera
                     if hasattr(self.preprocessor, 'feature_names_in_'):
                         preprocessor_cols = list(self.preprocessor.feature_names_in_)
