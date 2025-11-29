@@ -1,10 +1,11 @@
 # Streamlit Web App Requirements
 # Para deploy en Streamlit Cloud
 # PyCaret es necesario para cargar modelos lr_pca25_cw.pkl (PyCaret Pipeline)
+# NOTA: PyCaret requiere pandas<2.2.0, por lo que ajustamos pandas a <2.2.0
 # Versiones con wheels precompilados para evitar errores de compilación
 
 streamlit>=1.28.0
-pandas>=2.2.0
+pandas>=1.5.0,<2.2.0
 numpy>=1.26.0
 scikit-learn>=1.2.0
 pycaret>=3.0.0
