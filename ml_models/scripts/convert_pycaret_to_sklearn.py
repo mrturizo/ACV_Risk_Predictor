@@ -103,15 +103,52 @@ def extract_sklearn_pipeline(pycaret_model_path: Path) -> object:
 def save_sklearn_model(pipeline: object, output_path: Path) -> None:
     """Guarda un Pipeline de sklearn como modelo puro.
     
+    CRÍTICO: Asegura que solo se guarde el Pipeline, sin otros objetos.
+    Usa pickle en modo protocolo 4 para garantizar compatibilidad y que solo
+    se guarde un objeto.
+    
     Args:
         pipeline: Pipeline de sklearn a guardar.
         output_path: Ruta donde guardar el modelo.
     """
     logger.info(f"Guardando Pipeline de sklearn en: {output_path}")
     
-    # Guardar con joblib (estándar para modelos sklearn)
-    joblib.dump(pipeline, output_path)
-    logger.info(f"✅ Modelo guardado exitosamente: {output_path}")
+    # CRÍTICO: Eliminar el archivo anterior si existe para evitar problemas
+    if output_path.exists():
+        output_path.unlink()
+        logger.info("Archivo anterior eliminado")
+    
+    # CRÍTICO: Guardar con pickle en modo protocolo 4 para asegurar que solo
+    # se guarde UN objeto (el Pipeline). joblib puede guardar múltiples objetos.
+    import pickle
+    with open(output_path, 'wb') as f:
+        pickle.dump(pipeline, f, protocol=4)
+    logger.info(f"✅ Modelo guardado exitosamente con pickle (protocolo 4): {output_path}")
+    
+    # CRÍTICO: Verificar que el archivo guardado contiene solo el Pipeline
+    try:
+        # Verificar con joblib primero (método preferido)
+        test_model = joblib.load(output_path)
+        if not (hasattr(test_model, 'predict') or hasattr(test_model, 'steps')):
+            raise ValueError(f"El modelo guardado no es válido: {type(test_model)}")
+        logger.info(f"✅ Verificación con joblib exitosa: modelo guardado es {type(test_model)}")
+        logger.info(f"   Tiene predict: {hasattr(test_model, 'predict')}")
+        logger.info(f"   Tiene predict_proba: {hasattr(test_model, 'predict_proba')}")
+        logger.info(f"   Tiene steps: {hasattr(test_model, 'steps')}")
+        
+        # Verificar con pickle que solo hay un objeto
+        with open(output_path, 'rb') as f:
+            obj = pickle.load(f)
+            logger.info(f"✅ Verificación con pickle: primer objeto es {type(obj)}")
+            try:
+                # Intentar cargar otro objeto (debería fallar con EOFError)
+                pickle.load(f)
+                logger.warning("⚠️ El archivo contiene más de un objeto")
+            except EOFError:
+                logger.info("✅ El archivo contiene SOLO un objeto (correcto)")
+    except Exception as e:
+        logger.error(f"❌ Error al verificar modelo guardado: {e}")
+        raise
 
 
 def main():
