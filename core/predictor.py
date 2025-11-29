@@ -297,17 +297,23 @@ class StrokePredictor:
         y si no existe, busca 'lr_pca25_cw.pkl' (modelo original).
         """
         if self.model_path is None:
-            # PRIORIDAD 1: Buscar modelo convertido (sklearn puro, sin dependencias de PyCaret)
-            converted_model = MODELS_DIR / "lr_pca25_cw_sklearn.pkl"
             original_model = MODELS_DIR / "lr_pca25_cw.pkl"
+            converted_model = MODELS_DIR / "lr_pca25_cw_sklearn.pkl"
             
-            if converted_model.exists():
-                self.model_path = converted_model
-                logger.info(f"✅ Modelo convertido encontrado (sklearn puro): {self.model_path}")
-            elif original_model.exists():
+            # ESTRATEGIA: En local con PyCaret, usar el original. En Cloud sin PyCaret, usar el convertido
+            if PYCARET_AVAILABLE and original_model.exists():
+                # Estamos en desarrollo local con PyCaret - usar modelo original
                 self.model_path = original_model
-                logger.warning(f"⚠️ Usando modelo original (requiere PyCaret): {self.model_path}")
-                logger.info("   Considera convertir el modelo ejecutando: python ml_models/scripts/convert_pycaret_to_sklearn.py")
+                logger.info(f"✅ [Local con PyCaret] Usando modelo original: {self.model_path}")
+            elif converted_model.exists():
+                # Estamos en Streamlit Cloud sin PyCaret - usar modelo convertido
+                self.model_path = converted_model
+                logger.info(f"✅ [Cloud sin PyCaret] Usando modelo convertido: {self.model_path}")
+            elif original_model.exists():
+                # Fallback: usar original aunque no tengamos PyCaret (intentará con mocks)
+                self.model_path = original_model
+                logger.warning(f"⚠️ [Fallback] Usando modelo original sin PyCaret: {self.model_path}")
+                logger.info("   Se intentará cargar con mocks de PyCaret")
             else:
                 error_msg = (
                     f"ERROR CRÍTICO: No se encontró ningún modelo en {MODELS_DIR}. "
