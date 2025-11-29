@@ -128,8 +128,27 @@ def _create_pycaret_mocks():
                 """Para compatibilidad con pickle."""
                 pass
         
-        # Asignar TransformerWrapper al módulo
+        # CRÍTICO: Crear FixImbalancer - usado por PyCaret para balanceo de clases
+        class FixImbalancer:
+            """Clase mock para FixImbalancer de PyCaret.
+            
+            Esta clase es usada por PyCaret para balancear clases desbalanceadas.
+            """
+            def __init__(self, *args, **kwargs):
+                """Constructor mock - acepta cualquier argumento."""
+                pass
+            
+            def __getstate__(self):
+                """Para compatibilidad con pickle."""
+                return {}
+            
+            def __setstate__(self, state):
+                """Para compatibilidad con pickle."""
+                pass
+        
+        # Asignar clases al módulo
         transformers_mock.TransformerWrapper = TransformerWrapper
+        transformers_mock.FixImbalancer = FixImbalancer
         
         # También agregar otras clases comunes que pueden ser buscadas
         class MockTransformer:
@@ -355,11 +374,48 @@ class StrokePredictor:
             except Exception as joblib_err:
                 logger.warning(f"Fallo joblib.load({self.model_path}): {joblib_err}. Probando con pickle.load()...")
                 import pickle
+                
+                # CRÍTICO: El archivo puede contener múltiples objetos serializados
+                # Intentar cargar todos los objetos hasta encontrar uno válido
+                loaded_obj = None
                 with open(self.model_path, "rb") as f:
-                    loaded_obj = pickle.load(f)
+                    try:
+                        # Intentar cargar el primer objeto
+                        loaded_obj = pickle.load(f)
+                        logger.info(f"Primer objeto cargado: {type(loaded_obj)}")
+                        
+                        # Si es un numpy.ndarray, intentar cargar más objetos
+                        if isinstance(loaded_obj, np.ndarray):
+                            logger.warning("Primer objeto es numpy.ndarray, buscando más objetos en el archivo...")
+                            try:
+                                # Intentar cargar el siguiente objeto
+                                next_obj = pickle.load(f)
+                                logger.info(f"Siguiente objeto cargado: {type(next_obj)}")
+                                
+                                # Si el siguiente objeto tiene métodos predict, usarlo
+                                if hasattr(next_obj, 'predict') or hasattr(next_obj, 'predict_proba'):
+                                    loaded_obj = next_obj
+                                    logger.info(f"✅ Usando segundo objeto (tiene métodos predict): {type(loaded_obj)}")
+                                else:
+                                    # Intentar cargar más objetos
+                                    while True:
+                                        try:
+                                            next_obj = pickle.load(f)
+                                            logger.info(f"Objeto adicional cargado: {type(next_obj)}")
+                                            if hasattr(next_obj, 'predict') or hasattr(next_obj, 'predict_proba'):
+                                                loaded_obj = next_obj
+                                                logger.info(f"✅ Usando objeto con métodos predict: {type(loaded_obj)}")
+                                                break
+                                        except EOFError:
+                                            logger.warning("Fin del archivo alcanzado")
+                                            break
+                            except EOFError:
+                                logger.warning("Solo hay un objeto en el archivo (numpy.ndarray)")
+                    except EOFError:
+                        logger.error("El archivo está vacío o corrupto")
                 
                 # Manejar diccionarios o múltiples objetos
-                if isinstance(loaded_obj, dict):
+                if loaded_obj is not None and isinstance(loaded_obj, dict):
                     logger.info(f"Archivo contiene diccionario con {len(loaded_obj)} claves: {list(loaded_obj.keys())[:5]}")
                     for key in ['model', 'pipeline', 'estimator', 'final_model', 'best_model']:
                         if key in loaded_obj:
@@ -372,6 +428,9 @@ class StrokePredictor:
                                 loaded_obj = value
                                 logger.info(f"Modelo encontrado en clave '{key}': {type(loaded_obj)}")
                                 break
+                
+                if loaded_obj is None:
+                    raise ValueError("No se pudo cargar ningún objeto válido del archivo")
                 
                 self.model = loaded_obj
                 logger.info("Modelo cargado con pickle.load()")
