@@ -1,9 +1,9 @@
 # Dockerfile para la aplicación web Streamlit
-# Optimizado para Streamlit Cloud con PyCaret
+# Optimizado para Streamlit Cloud (sin PyCaret - el modelo se carga con joblib)
 
 FROM python:3.10-slim
 
-# Instalar dependencias del sistema necesarias para PyCaret y scikit-learn
+# Instalar dependencias del sistema necesarias para scikit-learn y pandas
 RUN apt-get update && apt-get install -y \
     build-essential \
     gcc \
@@ -14,10 +14,10 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copiar requirements e instalar dependencias de Python
-# Instalar primero numpy y scipy (requeridos por PyCaret)
+# Instalar primero numpy y scipy (requeridos por scikit-learn)
 COPY app_web/requirements.txt .
 RUN pip install --no-cache-dir \
-    numpy>=1.26.0 \
+    numpy>=1.21.0,<1.26.0 \
     scipy>=1.10.0 \
     && pip install --no-cache-dir -r requirements.txt
 

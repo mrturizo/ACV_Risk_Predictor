@@ -15,7 +15,9 @@ try:
     PYCARET_AVAILABLE = True
 except ImportError:
     PYCARET_AVAILABLE = False
-    logger.warning("PyCaret no está instalado. Las funciones de predicción no estarán disponibles.")
+    # NOTA: PyCaret no es necesario para usar el modelo. El modelo se carga con joblib
+    # y se usa directamente con .predict() y .predict_proba() del Pipeline de sklearn.
+    logger.info("PyCaret no está instalado. El modelo se cargará con joblib (no se requiere PyCaret).")
 
 from core import MODELS_DIR
 from core.config_features import MODEL_INPUT_COLUMNS
