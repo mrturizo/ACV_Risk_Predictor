@@ -7,24 +7,101 @@ import numpy as np
 import logging
 import sys
 import types
+import importlib.util
 
 # Configurar logging primero
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# CRÍTICO: Import hook para interceptar importaciones de PyCaret durante pickle.load
+class PyCaretImportHook:
+    """Import hook que intercepta importaciones de PyCaret y devuelve módulos mock."""
+    
+    def find_spec(self, name, path, target=None):
+        """Intercepta búsquedas de módulos de PyCaret."""
+        if name.startswith('pycaret'):
+            # Crear un loader mock
+            loader = self
+            spec = importlib.util.spec_from_loader(name, loader)
+            return spec
+        return None
+    
+    def create_module(self, spec):
+        """Crea un módulo mock cuando se intenta importar PyCaret."""
+        if spec and spec.name.startswith('pycaret'):
+            # Si ya existe en sys.modules, devolverlo
+            if spec.name in sys.modules:
+                return sys.modules[spec.name]
+            # Crear módulo mock
+            mock_module = types.ModuleType(spec.name)
+            # Si es un paquete interno, agregar __path__ para que Python lo reconozca como paquete
+            if '.internal' in spec.name:
+                mock_module.__path__ = []
+            # Agregar clases mock básicas
+            class MockClass:
+                pass
+            for attr_name in ['Pipeline', 'Transformer', 'Preprocessor', 'Imputer', 'Scaler']:
+                setattr(mock_module, attr_name, MockClass)
+            sys.modules[spec.name] = mock_module
+            return mock_module
+        return None
+    
+    def exec_module(self, module):
+        """Ejecuta el módulo mock (no hace nada, ya está configurado en create_module)."""
+        pass
+
+# Instalar el import hook solo si PyCaret no está disponible
+_pycaret_import_hook_installed = False
+
 # CRÍTICO: Crear módulos mock de PyCaret ANTES de intentar importarlo
 # Esto permite que pickle/joblib pueda deserializar modelos sin PyCaret instalado
 def _create_pycaret_mocks():
-    """Crea módulos mock de PyCaret para permitir deserialización sin PyCaret instalado."""
+    """Crea módulos mock de PyCaret para permitir deserialización sin PyCaret instalado.
+    
+    Crea todos los módulos internos de PyCaret que pickle puede intentar importar
+    al deserializar un modelo entrenado con PyCaret.
+    """
     # Crear módulo mock para pycaret
     if 'pycaret' not in sys.modules:
         pycaret_mock = types.ModuleType('pycaret')
         sys.modules['pycaret'] = pycaret_mock
     
     # Crear módulo mock para pycaret.internal
+    # CRÍTICO: Debe tener __path__ para que Python lo reconozca como paquete
     if 'pycaret.internal' not in sys.modules:
         pycaret_internal_mock = types.ModuleType('pycaret.internal')
+        # Hacer que Python lo reconozca como un paquete (namespace package)
+        pycaret_internal_mock.__path__ = []
         sys.modules['pycaret.internal'] = pycaret_internal_mock
+    
+    # CRÍTICO: Crear pycaret.internal.preprocess (el que está faltando)
+    # Este es el módulo que está causando el error
+    if 'pycaret.internal.preprocess' not in sys.modules:
+        pycaret_preprocess_mock = types.ModuleType('pycaret.internal.preprocess')
+        sys.modules['pycaret.internal.preprocess'] = pycaret_preprocess_mock
+        
+        # Crear clases mock para preprocessores que pickle puede buscar
+        class MockPreprocessor:
+            """Clase mock para Preprocessor de PyCaret."""
+            pass
+        
+        class MockTransformer:
+            """Clase mock para Transformer de PyCaret."""
+            pass
+        
+        class MockImputer:
+            """Clase mock para Imputer de PyCaret."""
+            pass
+        
+        class MockScaler:
+            """Clase mock para Scaler de PyCaret."""
+            pass
+        
+        # Asignar las clases mock al módulo
+        pycaret_preprocess_mock.Preprocessor = MockPreprocessor
+        pycaret_preprocess_mock.Transformer = MockTransformer
+        pycaret_preprocess_mock.Imputer = MockImputer
+        pycaret_preprocess_mock.Scaler = MockScaler
     
     # Crear módulo mock para pycaret.internal.pipeline
     if 'pycaret.internal.pipeline' not in sys.modules:
@@ -50,7 +127,36 @@ def _create_pycaret_mocks():
         pycaret_classification_mock = types.ModuleType('pycaret.classification')
         sys.modules['pycaret.classification'] = pycaret_classification_mock
     
-    logger.info("Módulos mock de PyCaret creados para deserialización")
+    # Crear otros módulos internos comunes que pueden ser referenciados
+    # IMPORTANTE: Crear TODOS los módulos que pickle puede intentar importar
+    internal_modules = [
+        'pycaret.internal.display',
+        'pycaret.internal.utils',
+        'pycaret.internal.tabular',
+        'pycaret.internal.pipeline',
+        'pycaret.internal.preprocess',  # Ya creado arriba, pero por si acaso
+        'pycaret.internal.preprocess.transformers',
+        'pycaret.internal.preprocess.preprocessor',
+        'pycaret.internal.preprocess.imputer',
+        'pycaret.internal.preprocess.scaler',
+    ]
+    
+    for module_name in internal_modules:
+        if module_name not in sys.modules:
+            mock_module = types.ModuleType(module_name)
+            sys.modules[module_name] = mock_module
+            
+            # Agregar clases mock comunes a cada módulo
+            class MockClass:
+                """Clase mock genérica."""
+                pass
+            
+            # Agregar algunas clases comunes que pickle puede buscar
+            for class_name in ['Transformer', 'Preprocessor', 'Imputer', 'Scaler', 'Pipeline']:
+                if not hasattr(mock_module, class_name):
+                    setattr(mock_module, class_name, MockClass)
+    
+    logger.info("Módulos mock de PyCaret creados para deserialización (incluyendo preprocess y sub-módulos)")
 
 try:
     from pycaret.classification import load_model, predict_model
@@ -63,6 +169,13 @@ except ImportError:
     
     # Crear los mocks inmediatamente si PyCaret no está disponible
     _create_pycaret_mocks()
+    
+    # Instalar import hook para interceptar importaciones de PyCaret durante pickle.load
+    global _pycaret_import_hook_installed
+    if not _pycaret_import_hook_installed:
+        sys.meta_path.insert(0, PyCaretImportHook())
+        _pycaret_import_hook_installed = True
+        logger.info("Import hook de PyCaret instalado para interceptar importaciones durante deserialización")
 
 from core import MODELS_DIR
 from core.config_features import MODEL_INPUT_COLUMNS
