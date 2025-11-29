@@ -18,7 +18,8 @@ from core import (
     load_data_file,
     get_recommendations,
     DATA_UPLOADS,
-    DATA_OUTPUTS
+    DATA_OUTPUTS,
+    MODEL_INPUT_COLUMNS,
 )
 from core.profiles import get_profile, get_available_profiles
 
@@ -44,6 +45,15 @@ class StrokeApp(tk.Tk):
         self.title("ACV Risk Predictor - Predicción de Riesgo de Accidente Cerebrovascular")
         self.geometry("1000x800")
         self.minsize(900, 700)
+        
+        # Configurar icono de la ventana (usar siempre icon.ico en la raíz del bundle)
+        try:
+            icon_path = resource_path("icon.ico")
+            if Path(icon_path).exists():
+                self.iconbitmap(str(icon_path))
+        except Exception:
+            # Si falla, seguir sin icono personalizado
+            pass
         
         # Configurar tema y colores profesionales
         self.configure(bg='#f5f5f5')
@@ -136,12 +146,19 @@ class StrokeApp(tk.Tk):
         try:
             # Intentar encontrar modelo usando resource_path para compatibilidad con PyInstaller
             models_dir = get_models_dir()
-            model_files = list(models_dir.glob("*.pkl"))
+            # Priorizar el modelo final lr_pca25_cw.pkl
+            preferred = models_dir / "lr_pca25_cw.pkl"
+            if preferred.exists():
+                model_file = preferred
+            else:
+                model_files = list(models_dir.glob("*.pkl"))
+                if not model_files:
+                    model_file = None
+                else:
+                    model_file = model_files[0]
             
-            if model_files:
+            if model_file is not None:
                 # Usar resource_path para asegurar compatibilidad con .exe
-                model_file = model_files[0]
-                # Construir ruta relativa desde la raíz del proyecto
                 relative_path = f"models/{model_file.name}"
                 model_path = resource_path(relative_path)
                 
@@ -615,52 +632,47 @@ class StrokeApp(tk.Tk):
             if not (0 <= age <= 120):
                 raise ValueError("La edad debe estar entre 0 y 120 años")
             
-            # Crear diccionario de datos con nombres exactos del modelo NHANES
+            # Crear diccionario de datos con nombres exactos del modelo NHANES (30 columnas)
             data = {
                 # Biomédicas
-                'sleep time': float(self.sleep_time_var.get()),
-                'Minutes sedentary activity': float(self.sedentary_minutes_var.get()),
-                'Waist Circumference': float(self.waist_circ_var.get()),
-                'Systolic blood pressure': float(self.systolic_bp_var.get()),
-                'Diastolic blood pressure': float(self.diastolic_bp_var.get()),
-                'High-density lipoprotein': float(self.hdl_var.get()),
-                'Triglyceride': float(self.triglyceride_var.get()),
-                'Low-density lipoprotein': float(self.ldl_var.get()),
-                'Fasting Glucose': float(self.fasting_glucose_var.get()),
-                'Glycohemoglobin': float(self.glycohemoglobin_var.get()),
-                'Body Mass Index': float(self.bmi_var.get()),
-                
+                "sleep time": float(self.sleep_time_var.get()),
+                "Minutes sedentary activity": float(self.sedentary_minutes_var.get()),
+                "Waist Circumference": float(self.waist_circ_var.get()),
+                "Systolic blood pressure": float(self.systolic_bp_var.get()),
+                "Diastolic blood pressure": float(self.diastolic_bp_var.get()),
+                "High-density lipoprotein": float(self.hdl_var.get()),
+                "Triglyceride": float(self.triglyceride_var.get()),
+                "Low-density lipoprotein": float(self.ldl_var.get()),
+                "Fasting Glucose": float(self.fasting_glucose_var.get()),
+                "Glycohemoglobin": float(self.glycohemoglobin_var.get()),
+                "Body Mass Index": float(self.bmi_var.get()),
+
                 # Dietéticas
-                'energy': float(self.energy_var.get()),
-                'protein': float(self.protein_var.get()),
-                'Carbohydrate': float(self.carbohydrate_var.get()),
-                'Dietary fiber': float(self.dietary_fiber_var.get()),
-                'Total saturated fatty acids': float(self.total_saturated_fatty_var.get()),
-                'Total monounsaturated fatty acids': float(self.total_monounsaturated_fatty_var.get()),
-                'Total polyunsaturated fatty acids': float(self.total_polyunsaturated_fatty_var.get()),
-                'Potassium': float(self.potassium_var.get()),
-                'Sodium': float(self.sodium_var.get()),
-                
+                "energy": float(self.energy_var.get()),
+                "protein": float(self.protein_var.get()),
+                "Dietary fiber": float(self.dietary_fiber_var.get()),
+                "Potassium": float(self.potassium_var.get()),
+                "Sodium": float(self.sodium_var.get()),
+
                 # Demográficas
-                'gender': int(self.gender_var.get()),
-                'age': age,
-                'Race': int(self.race_var.get()),
-                'Marital status': int(self.marital_status_var.get()),
-                
+                "gender": int(self.gender_var.get()),
+                "age": age,
+                "Race": int(self.race_var.get()),
+                "Marital status": int(self.marital_status_var.get()),
+
                 # Estilo de vida
-                'alcohol': int(self.alcohol_var.get()),
-                'alcohol ': int(self.alcohol_var.get()),  # Con espacio como en los splits
-                'smoke': int(self.smoke_var.get()),
-                'sleep disorder': int(self.sleep_disorder_var.get()),
-                
+                "alcohol": int(self.alcohol_var.get()),
+                "smoke": int(self.smoke_var.get()),
+                "sleep disorder": int(self.sleep_disorder_var.get()),
+
                 # Salud y condiciones
-                'Health Insurance': int(self.health_insurance_var.get()),
-                'General health condition': int(self.general_health_var.get()),
-                'depression': int(self.depression_var.get()),
-                'diabetes': int(self.diabetes_var.get()),
-                'hypertension': int(self.hypertension_var.get()),
-                'high cholesterol': int(self.high_cholesterol_var.get()),
-                'Coronary Heart Disease': int(self.coronary_heart_disease_var.get())
+                "Health Insurance": int(self.health_insurance_var.get()),
+                "General health condition": int(self.general_health_var.get()),
+                "depression": int(self.depression_var.get()),
+                "diabetes": int(self.diabetes_var.get()),
+                "hypertension": int(self.hypertension_var.get()),
+                "high cholesterol": int(self.high_cholesterol_var.get()),
+                "Coronary Heart Disease": int(self.coronary_heart_disease_var.get()),
             }
             
             return True, data
@@ -687,8 +699,17 @@ class StrokeApp(tk.Tk):
             self.status_bar.config(text="Realizando predicción...")
             self.update()
             
-            # Crear DataFrame
+            # Crear DataFrame y reordenar al orden exacto que espera el modelo
             input_data = pd.DataFrame([data_dict])
+            # Asegurar que las columnas estén en el orden correcto
+            if set(MODEL_INPUT_COLUMNS) <= set(input_data.columns):
+                input_data = input_data[MODEL_INPUT_COLUMNS]
+            else:
+                # Si faltan columnas, agregarlas con 0
+                missing = set(MODEL_INPUT_COLUMNS) - set(input_data.columns)
+                for col in missing:
+                    input_data[col] = 0.0
+                input_data = input_data[MODEL_INPUT_COLUMNS]
             
             # Realizar predicción
             result = self.predictor.predict(input_data)
@@ -803,6 +824,13 @@ class StrokeApp(tk.Tk):
             # Encontrar el índice real en el DataFrame
             # Por ahora, usar la primera fila
             row_data = self.loaded_file_data.iloc[[0]]
+        
+        # Asegurar que sólo se usen las columnas definidas en el contrato del modelo
+        try:
+            row_data = row_data[MODEL_INPUT_COLUMNS]
+        except KeyError:
+            # Si faltan columnas, se gestionará en el predictor
+            pass
         else:
             # Usar primera fila por defecto
             row_data = self.loaded_file_data.iloc[[0]]

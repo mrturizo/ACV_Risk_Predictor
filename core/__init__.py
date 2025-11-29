@@ -17,7 +17,7 @@ except ImportError:
     DATA_UPLOADS = DATA_DIR / "uploads"
     DATA_OUTPUTS = DATA_DIR / "outputs"
 
-# Exportar clases principales
+from core.config_features import MODEL_INPUT_COLUMNS, TARGET_COLUMN
 from core.predictor import StrokePredictor
 from core.reports import ReportGenerator
 from core.utils import (
@@ -26,22 +26,24 @@ from core.utils import (
     validate_data_types,
     validate_data_ranges,
     get_recommendations,
-    load_field_config
+    load_field_config,
 )
 
 __version__ = "0.1.0"
 __all__ = [
-    'StrokePredictor',
-    'ReportGenerator',
-    'load_data_file',
-    'validate_data_structure',
-    'validate_data_types',
-    'validate_data_ranges',
-    'get_recommendations',
-    'load_field_config',
-    'PROJECT_ROOT',
-    'MODELS_DIR',
-    'DATA_DIR',
-    'DATA_UPLOADS',
-    'DATA_OUTPUTS'
+    "StrokePredictor",
+    "ReportGenerator",
+    "load_data_file",
+    "validate_data_structure",
+    "validate_data_types",
+    "validate_data_ranges",
+    "get_recommendations",
+    "load_field_config",
+    "MODEL_INPUT_COLUMNS",
+    "TARGET_COLUMN",
+    "PROJECT_ROOT",
+    "MODELS_DIR",
+    "DATA_DIR",
+    "DATA_UPLOADS",
+    "DATA_OUTPUTS",
 ]

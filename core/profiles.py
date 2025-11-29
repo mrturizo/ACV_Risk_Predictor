@@ -60,7 +60,7 @@ def _get_paciente_sano() -> Dict[str, Any]:
         'Low-density lipoprotein': 2.5,  # LDL normal
         'Fasting Glucose': 5.5,  # Glucosa en ayunas normal
         'Glycohemoglobin': 5.0,  # Hemoglobina glicosilada normal
-        'Body Mass Index': 23.0,  # BMI normal
+        'Body Mass Index': 2,  # BMI normal (1=bajo, 2=normal, 3=sobrepeso, 4=obeso)
         
         # Dietéticas
         'energy': 2000.0,  # Energía calórica normal
@@ -75,9 +75,9 @@ def _get_paciente_sano() -> Dict[str, Any]:
         
         # Demográficas
         'gender': 1,  # Masculino (1) o Femenino (2) - usando 1 como default
-        'age': 45,  # Edad media
-        'Race': 3,  # Raza (valores típicos: 1-5)
-        'Marital status': 1,  # Casado
+        'age': 2,  # Grupo de edad medio (1=grupo joven, 2=adulto, 3=mayor)
+        'Race': 3,  # Raza (valores: 1-5)
+        'Marital status': 1,  # Estado civil (valores: 1-6)
         
         # Estilo de vida
         'alcohol': 0,  # No consume alcohol (sin espacio)
@@ -114,7 +114,7 @@ def _get_paciente_factores_riesgo() -> Dict[str, Any]:
         'Low-density lipoprotein': 3.5,  # LDL elevado
         'Fasting Glucose': 6.5,  # Glucosa en ayunas en límite alto
         'Glycohemoglobin': 5.8,  # Hemoglobina glicosilada en límite
-        'Body Mass Index': 28.0,  # BMI sobrepeso
+        'Body Mass Index': 3,  # BMI sobrepeso (1=bajo, 2=normal, 3=sobrepeso, 4=obeso)
         
         # Dietéticas
         'energy': 2500.0,  # Mayor ingesta calórica
@@ -129,7 +129,7 @@ def _get_paciente_factores_riesgo() -> Dict[str, Any]:
         
         # Demográficas
         'gender': 1,
-        'age': 60,  # Edad mayor
+        'age': 3,  # Grupo de edad mayor (1=grupo joven, 2=adulto, 3=mayor)
         'Race': 3,
         'Marital status': 1,
         
@@ -168,7 +168,7 @@ def _get_paciente_comorbilidades() -> Dict[str, Any]:
         'Low-density lipoprotein': 4.2,  # LDL muy alto
         'Fasting Glucose': 8.0,  # Glucosa elevada (diabetes)
         'Glycohemoglobin': 7.5,  # Hemoglobina glicosilada elevada
-        'Body Mass Index': 32.0,  # BMI obeso
+        'Body Mass Index': 4,  # BMI obeso (1=bajo, 2=normal, 3=sobrepeso, 4=obeso)
         
         # Dietéticas
         'energy': 2200.0,  # Ingesta calórica moderada-alta
@@ -183,7 +183,7 @@ def _get_paciente_comorbilidades() -> Dict[str, Any]:
         
         # Demográficas
         'gender': 1,
-        'age': 70,  # Edad avanzada
+        'age': 3,  # Grupo de edad mayor (1=grupo joven, 2=adulto, 3=mayor)
         'Race': 3,
         'Marital status': 1,
         

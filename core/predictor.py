@@ -18,6 +18,7 @@ except ImportError:
     logger.warning("PyCaret no está instalado. Las funciones de predicción no estarán disponibles.")
 
 from core import MODELS_DIR
+from core.config_features import MODEL_INPUT_COLUMNS
 
 
 class StrokePredictor:
@@ -52,14 +53,20 @@ class StrokePredictor:
         """Carga el modelo PyCaret o sklearn desde el archivo especificado."""
         if self.model_path is None:
             # Buscar modelo en la carpeta models/
-            model_files = list(MODELS_DIR.glob("*.pkl"))
-            if not model_files:
-                raise FileNotFoundError(
-                    f"No se encontró ningún modelo .pkl en {MODELS_DIR}. "
-                    "Ejecuta ml_models/scripts/train_dummy.py para generar un modelo de prueba."
-                )
-            self.model_path = model_files[0]
-            logger.info(f"Modelo encontrado automáticamente: {self.model_path}")
+            # Priorizar explícitamente lr_pca25_cw.pkl (modelo final acordado)
+            preferred = MODELS_DIR / "lr_pca25_cw.pkl"
+            if preferred.exists():
+                self.model_path = preferred
+                logger.info(f"Modelo preferido seleccionado automáticamente: {self.model_path}")
+            else:
+                model_files = list(MODELS_DIR.glob("*.pkl"))
+                if not model_files:
+                    raise FileNotFoundError(
+                        f"No se encontró ningún modelo .pkl en {MODELS_DIR}. "
+                        "Ejecuta ml_models/scripts/train_dummy.py para generar un modelo de prueba."
+                    )
+                self.model_path = model_files[0]
+                logger.info(f"Modelo encontrado automáticamente: {self.model_path}")
         
         if not self.model_path.exists():
             raise FileNotFoundError(f"El archivo del modelo no existe: {self.model_path}")
@@ -67,29 +74,45 @@ class StrokePredictor:
         try:
             logger.info(f"Cargando modelo desde: {self.model_path}")
             
-            # Intentar cargar como modelo PyCaret primero
-            if PYCARET_AVAILABLE:
-                try:
-                    self.model = load_model(str(self.model_path)[:-4])  # PyCaret espera sin .pkl
-                    self.is_pycaret_model = True
-                    logger.info("Modelo cargado como PyCaret")
-                except Exception as e:
-                    # Si falla, intentar cargar como modelo sklearn
-                    logger.info(f"No es un modelo PyCaret, intentando cargar como sklearn: {e}")
-                    import pickle
-                    with open(self.model_path, 'rb') as f:
-                        self.model = pickle.load(f)
-                    self.is_pycaret_model = False
-                    logger.info("Modelo cargado como sklearn")
-            else:
-                # Si PyCaret no está disponible, cargar como sklearn
+            # Cargar modelo desde disco.
+            # NOTA: Muchos modelos finales (como lr_pca25_cw.pkl) fueron serializados
+            # con joblib. Si se cargan con pickle directamente, se obtiene un
+            # numpy.ndarray en lugar del Pipeline, lo que provoca errores como
+            # `'numpy.ndarray' object has no attribute 'predict'`.
+            try:
+                import joblib
+                self.model = joblib.load(self.model_path)
+                logger.info("Modelo cargado con joblib.load()")
+            except Exception as joblib_err:
+                logger.warning(f"Fallo joblib.load({self.model_path}): {joblib_err}. Probando con pickle.load()...")
                 import pickle
-                with open(self.model_path, 'rb') as f:
+                with open(self.model_path, "rb") as f:
                     self.model = pickle.load(f)
-                self.is_pycaret_model = False
-                logger.info("Modelo cargado como sklearn (PyCaret no disponible)")
-            
-            # Cargar preprocesador completo
+                logger.info("Modelo cargado con pickle.load()")
+
+            logger.info(f"Modelo cargado: tipo={type(self.model)}")
+
+            # Detectar si es un Pipeline completo de PyCaret (incluye imputación, balanceo,
+            # normalización y PCA). En ese caso, NO debemos aplicar un preprocesador externo.
+            model_module = type(self.model).__module__
+            if model_module.startswith("pycaret.internal.pipeline"):
+                self.is_pycaret_model = True
+                self.preprocessor = None
+                self.preprocessor_path = None
+                logger.info(
+                    "Modelo detectado como Pipeline completo de PyCaret; "
+                    "se usará su preprocesamiento interno (imputación + zscore + PCA)."
+                )
+                # No cargar preprocesador externo ni reparar scaler.
+                self._extract_required_columns()
+                logger.info("Modelo cargado exitosamente")
+                return
+
+            # Si no es un Pipeline de PyCaret, lo tratamos como modelo sklearn puro.
+            self.is_pycaret_model = False
+            logger.info("Modelo tratado como estimador sklearn puro")
+
+            # Cargar preprocesador completo heredado (si existe)
             # IMPORTANTE: Los modelos sklearn fueron entrenados con datos que pasaron por el preprocesador completo,
             # pero los splits tienen nombres de columnas ORIGINALES (sin prefijos). El preprocesador genera
             # columnas con prefijos (num__, cat_num__), por lo que necesitamos mapear de vuelta a nombres originales.
@@ -407,29 +430,39 @@ class StrokePredictor:
             Tupla con (es_válido, información_del_estado)
         """
         status = processing_status.copy()
-        errors = status.get('errors', [])
-        warnings = status.get('warnings', [])
-        
-        # Verificar si el preprocesador se aplicó correctamente
-        if status.get('preprocessed', False) and status.get('normalized', False):
-            # El preprocesador completo incluye normalización, así que está todo bien
+
+        # Si el modelo es un Pipeline completo de PyCaret (como lr_pca25_cw.pkl),
+        # asumimos que el propio pipeline se encarga de TODA la imputación,
+        # normalización (z-score) y PCA internamente. En ese caso no exigimos
+        # que exista un preprocesador externo.
+        if self.is_pycaret_model:
+            status.setdefault("errors", [])
+            status.setdefault("warnings", [])
+            status["is_valid"] = True
+            return True, status
+
+        errors = status.get("errors", [])
+        warnings = status.get("warnings", [])
+
+        # Verificar si el preprocesador externo se aplicó correctamente
+        if status.get("preprocessed", False) and status.get("normalized", False):
             is_valid = True
         elif self.preprocessor is not None:
             # Hay preprocesador pero no se aplicó correctamente
             is_valid = False
             errors.append("El preprocesador está disponible pero no se aplicó correctamente.")
         else:
-            # No hay preprocesador disponible
+            # No hay preprocesador disponible para un modelo sklearn puro
             is_valid = False
-            if not self.is_pycaret_model:
-                errors.append("CRÍTICO: No hay preprocesador disponible. El modelo sklearn requiere datos procesados y normalizados.")
-            else:
-                errors.append("No hay preprocesador disponible. El modelo PyCaret puede requerir preprocesamiento.")
-        
-        status['errors'] = errors
-        status['warnings'] = warnings
-        status['is_valid'] = is_valid
-        
+            errors.append(
+                "CRÍTICO: No hay preprocesador disponible. "
+                "El modelo sklearn requiere datos procesados y normalizados."
+            )
+
+        status["errors"] = errors
+        status["warnings"] = warnings
+        status["is_valid"] = is_valid
+
         return is_valid, status
     
     def predict(self, data: pd.DataFrame) -> Dict[str, Any]:
@@ -472,6 +505,13 @@ class StrokePredictor:
                 'errors': [],
                 'warnings': []
             }
+
+            # Si el modelo es un Pipeline completo (PyCaret), asumimos que ya incluye
+            # todo el preprocesamiento interno (imputación + balanceo + z-score + PCA).
+            if self.is_pycaret_model and self.preprocessor is None:
+                processing_status["preprocessed"] = True
+                processing_status["normalized"] = True
+                processing_status["normalization_method"] = "internal_pipeline"
             
             # Inicializar variable para datos transformados con prefijos
             data_transformed_with_prefixes = pd.DataFrame()
@@ -609,9 +649,16 @@ class StrokePredictor:
                     traceback.print_exc()
                     raise ValueError(f"Error al aplicar preprocesador: {str(e)}")
             else:
-                logger.warning("⚠️ No hay preprocesador disponible. Los datos NO se procesarán.")
-                processing_status['warnings'].append("No hay preprocesador disponible")
-                if not self.is_pycaret_model:
+                if self.is_pycaret_model:
+                    # El Pipeline del modelo (por ejemplo lr_pca25_cw.pkl) ya incluye
+                    # todo el preprocesamiento necesario.
+                    logger.info(
+                        "Usando preprocesamiento interno del Pipeline del modelo "
+                        "(no se aplica preprocesador externo)."
+                    )
+                else:
+                    logger.warning("⚠️ No hay preprocesador disponible. Los datos NO se procesarán.")
+                    processing_status["warnings"].append("No hay preprocesador disponible")
                     logger.warning("   ⚠️ CRÍTICO: El modelo sklearn fue entrenado con datos procesados.")
                     logger.warning("   Sin preprocesamiento, las predicciones serán incorrectas.")
             
@@ -649,97 +696,60 @@ class StrokePredictor:
             
             # Realizar predicción según el tipo de modelo
             if self.is_pycaret_model:
-                if not PYCARET_AVAILABLE:
-                    raise ImportError("PyCaret no está instalado. No se pueden realizar predicciones con modelos PyCaret.")
-                
-                # Intentar usar PyCaret predict_model
-                try:
-                    predictions = predict_model(self.model, data=data)
+                # Tratamos el modelo como un Pipeline sklearn completo:
+                # recibe las 30 columnas crudas y aplica dentro imputación + SMOTE +
+                # normalización z-score + PCA + clasificador final.
+                logger.info(
+                    "Usando Pipeline sklearn completo (por ejemplo lr_pca25_cw.pkl) "
+                    "para predecir directamente."
+                )
+
+                # CRÍTICO: Reordenar columnas al orden exacto que espera el modelo
+                # El modelo tiene feature_names_in_ que incluye 'stroke', así que extraemos solo las de entrada
+                if hasattr(self.model, 'feature_names_in_'):
+                    model_expected_cols = [col for col in self.model.feature_names_in_ if col != 'stroke']
+                    logger.info(f"Modelo espera {len(model_expected_cols)} columnas en orden específico")
                     
-                    # PyCaret agrega columnas 'Label' y 'Score'
-                    if 'Label' in predictions.columns:
-                        predicted_label = predictions['Label'].iloc[0]
+                    # Verificar que tenemos todas las columnas
+                    missing = set(model_expected_cols) - set(data.columns)
+                    if missing:
+                        logger.warning(f"Columnas faltantes: {list(missing)[:5]}...")
+                        for col in missing:
+                            data[col] = 0.0
+                    
+                    # Reordenar al orden exacto del modelo
+                    data = data[model_expected_cols]
+                    logger.info(f"DataFrame reordenado: {list(data.columns)[:5]}... (total: {len(data.columns)})")
+                else:
+                    # Si no tiene feature_names_in_, usar MODEL_INPUT_COLUMNS como fallback
+                    logger.warning("Modelo no tiene feature_names_in_, usando MODEL_INPUT_COLUMNS")
+                    if set(MODEL_INPUT_COLUMNS) <= set(data.columns):
+                        data = data[MODEL_INPUT_COLUMNS]
                     else:
-                        pred_cols = [col for col in predictions.columns if 'label' in col.lower() or 'prediction' in col.lower()]
-                        if pred_cols:
-                            predicted_label = predictions[pred_cols[0]].iloc[0]
-                        else:
-                            raise ValueError("No se encontró la columna de predicción en los resultados.")
-                    
-                    # PyCaret 'Score' es la probabilidad de la clase positiva (stroke)
-                    # Necesitamos usar la probabilidad de la clase predicha
-                    if 'Score' in predictions.columns:
-                        score = predictions['Score'].iloc[0]  # Probabilidad de clase 1 (stroke)
-                        # Si predice clase 1, usar score; si predice clase 0, usar 1-score
-                        if int(predicted_label) == 1:
-                            probability = score  # Probabilidad de STROKE
-                        else:
-                            probability = 1.0 - score  # Probabilidad de NO STROKE
+                        missing = set(MODEL_INPUT_COLUMNS) - set(data.columns)
+                        logger.warning(f"Faltan columnas: {list(missing)[:5]}...")
+                        for col in missing:
+                            data[col] = 0.0
+                        data = data[MODEL_INPUT_COLUMNS]
+
+                # Predicción de clase
+                predicted_label = self.model.predict(data)[0]
+
+                # Probabilidades si están disponibles
+                if hasattr(self.model, "predict_proba"):
+                    probabilities = self.model.predict_proba(data)[0]
+                    prob_class_0 = probabilities[0] if len(probabilities) > 0 else 0.5
+                    prob_class_1 = probabilities[1] if len(probabilities) > 1 else 0.5
+
+                    if int(predicted_label) == 1:
+                        probability = prob_class_1  # Probabilidad de STROKE
                     else:
-                        prob_cols = [col for col in predictions.columns if 'score' in col.lower() or 'probability' in col.lower()]
-                        if prob_cols:
-                            score = predictions[prob_cols[0]].iloc[0]
-                            if int(predicted_label) == 1:
-                                probability = score
-                            else:
-                                probability = 1.0 - score
-                        else:
-                            # Si no hay Score, intentar usar predict_proba directamente
-                            if hasattr(self.model, 'predict_proba'):
-                                probabilities = self.model.predict_proba(data)[0]
-                                if int(predicted_label) == 1:
-                                    probability = probabilities[1]
-                                else:
-                                    probability = probabilities[0]
-                            else:
-                                probability = 0.5
-                                logger.warning("No se encontró probabilidad en los resultados, usando 0.5")
-                except Exception as pycaret_error:
-                    # Si falla predict_model, el modelo NO es PyCaret, es sklearn
-                    logger.warning(f"Error usando predict_model de PyCaret: {pycaret_error}")
-                    logger.info("El modelo NO es un Pipeline completo de PyCaret. Es un modelo sklearn.")
-                    
-                    # Cambiar el flag
-                    self.is_pycaret_model = False
-                    
-                    # Los datos ya fueron procesados con el preprocesador completo al inicio
-                    # No necesitamos aplicar normalización adicional
-                    logger.info("Los datos ya fueron procesados con el preprocesador completo.")
-                    
-                    # Solo asegurar que las columnas coincidan con las del modelo
-                    if hasattr(self.model, 'feature_names_in_'):
-                        model_expected_cols = list(self.model.feature_names_in_)
-                        if list(data.columns) != model_expected_cols:
-                            logger.info("Reordenando columnas para que coincidan con el modelo...")
-                            # Verificar si todas las columnas están presentes
-                            missing = set(model_expected_cols) - set(data.columns)
-                            if missing:
-                                logger.warning(f"Columnas faltantes: {list(missing)[:5]}...")
-                                for col in missing:
-                                    data[col] = 0.0
-                            data = data[model_expected_cols]
-                            logger.info(f"Columnas reordenadas: {data.shape}")
-                    
-                    # Usar el modelo sklearn directamente con datos normalizados
-                    predicted_label = self.model.predict(data)[0]
-                    
-                    # Obtener probabilidades si el modelo las soporta
-                    if hasattr(self.model, 'predict_proba'):
-                        probabilities = self.model.predict_proba(data)[0]
-                        # probabilities[0] = probabilidad clase 0 (NO stroke)
-                        # probabilities[1] = probabilidad clase 1 (STROKE)
-                        prob_class_0 = probabilities[0] if len(probabilities) > 0 else 0.5
-                        prob_class_1 = probabilities[1] if len(probabilities) > 1 else 0.5
-                        
-                        # Usar la probabilidad de la clase predicha
-                        if int(predicted_label) == 1:
-                            probability = prob_class_1  # Probabilidad de STROKE
-                        else:
-                            probability = prob_class_0  # Probabilidad de NO STROKE
-                    else:
-                        # Si no tiene predict_proba, usar 0.5 como default
-                        probability = 0.5
-                        logger.warning("El modelo no soporta predict_proba, usando 0.5")
+                        probability = prob_class_0  # Probabilidad de NO STROKE
+                else:
+                    probability = 0.5
+                    logger.warning(
+                        "El Pipeline no soporta predict_proba, usando probabilidad 0.5 por defecto."
+                    )
             else:
                 # Usar modelo sklearn directamente
                 predicted_label = self.model.predict(data)[0]
@@ -836,50 +846,15 @@ class StrokePredictor:
     
     def get_required_columns(self) -> List[str]:
         """Retorna la lista de columnas requeridas por el modelo NHANES.
-        
+
+        Usa el contrato centralizado definido en ``core.config_features``.
+
         Returns:
             Lista de nombres de columnas esperadas por el modelo.
         """
         if self.required_columns:
             return self.required_columns.copy()
-        
-        # Columnas del modelo NHANES (30 variables)
-        nhanes_columns = [
-            # Biomédicas
-            'sleep time',
-            'Minutes sedentary activity',
-            'Waist Circumference',
-            'Systolic blood pressure',
-            'Diastolic blood pressure',
-            'High-density lipoprotein',
-            'Triglyceride',
-            'Low-density lipoprotein',
-            'Fasting Glucose',
-            'Glycohemoglobin',
-            'Body Mass Index',
-            # Dietéticas
-            'energy',
-            'protein',
-            'Dietary fiber',
-            'Potassium',
-            'Sodium',
-            # Demográficas
-            'gender',
-            'age',
-            'Race',
-            'Marital status',
-            # Estilo de vida
-            'alcohol',
-            'smoke',
-            'sleep disorder',
-            # Salud y condiciones
-            'Health Insurance',
-            'General health condition',
-            'depression',
-            'diabetes',
-            'hypertension',
-            'high cholesterol',
-            'Coronary Heart Disease'
-        ]
-        
-        return nhanes_columns
+
+        # Usar contrato centralizado de columnas de entrada
+        self.required_columns = MODEL_INPUT_COLUMNS.copy()
+        return self.required_columns.copy()

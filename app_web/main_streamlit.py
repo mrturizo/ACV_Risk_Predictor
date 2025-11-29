@@ -22,7 +22,8 @@ from core import (
     get_recommendations,
     MODELS_DIR,
     DATA_UPLOADS,
-    DATA_OUTPUTS
+    DATA_OUTPUTS,
+    MODEL_INPUT_COLUMNS,
 )
 from core.profiles import get_profile, get_available_profiles
 
@@ -54,10 +55,14 @@ if 'input_data' not in st.session_state:
 def load_predictor_cached():
     """Carga el predictor con cache para evitar recargar en cada ejecución."""
     try:
+        # Priorizar el modelo final definido por Data Science
+        preferred = MODELS_DIR / "lr_pca25_cw.pkl"
+        if preferred.exists():
+            return StrokePredictor(model_path=preferred)
+
         model_files = list(MODELS_DIR.glob("*.pkl"))
         if model_files:
-            model_path = model_files[0]
-            return StrokePredictor(model_path=model_path)
+            return StrokePredictor(model_path=model_files[0])
         else:
             if MOCK_AVAILABLE:
                 return StrokePredictorMock()
@@ -167,6 +172,13 @@ def render_file_upload():
             else:
                 selected_data = data
             
+            # Asegurar columnas y orden según contrato del modelo
+            try:
+                selected_data = selected_data[MODEL_INPUT_COLUMNS]
+            except KeyError:
+                # Si faltan columnas, se manejará más adelante en el predictor
+                pass
+
             # Botón para realizar predicción
             if st.button("🔮 Realizar Predicción", type="primary", use_container_width=True):
                 if not load_predictor():
@@ -406,43 +418,42 @@ def render_manual_form():
                     st.write(f"- Colesterol Alto: {high_cholesterol}")
                     st.write(f"- Enfermedad Coronaria: {coronary_heart_disease}")
                 
-                # Crear DataFrame con los datos ingresados usando nombres exactos del modelo (35 columnas)
-                input_data = pd.DataFrame({
-                    'gender': [gender],
-                    'age': [age],
-                    'Race': [Race],
-                    'Marital status': [Marital_status],
-                    'alcohol ': [alcohol],  # Nota: con espacio al final como en los splits
-                    'smoke': [smoke],
-                    'sleep disorder': [sleep_disorder],
-                    'Health Insurance': [health_insurance],
-                    'General health condition': [general_health],
-                    'depression': [depression],
-                    'sleep time': [sleep_time],
-                    'diabetes': [diabetes],
-                    'hypertension': [hypertension],
-                    'high cholesterol': [high_cholesterol],
-                    'Minutes sedentary activity': [sedentary_minutes],
-                    'Coronary Heart Disease': [coronary_heart_disease],
-                    'Body Mass Index': [bmi],
-                    'Waist Circumference': [waist_circ],
-                    'Systolic blood pressure': [systolic_bp],
-                    'Diastolic blood pressure': [diastolic_bp],
-                    'High-density lipoprotein': [hdl],
-                    'Triglyceride': [triglyceride],
-                    'Low-density lipoprotein': [ldl],
-                    'Fasting Glucose': [fasting_glucose],
-                    'Glycohemoglobin': [glycohemoglobin],
-                    'energy': [energy],
-                    'protein': [protein],
-                    'Carbohydrate': [carbohydrate],
-                    'Dietary fiber': [dietary_fiber],
-                    'Total saturated fatty acids': [total_saturated_fatty],
-                    'Total monounsaturated fatty acids': [total_monounsaturated_fatty],
-                    'Total polyunsaturated fatty acids': [total_polyunsaturated_fatty],
-                    'Potassium': [potassium],
-                    'Sodium': [sodium]
-                })
+                # Crear diccionario con los datos ingresados
+                data_dict = {
+                    "sleep time": [sleep_time],
+                    "Minutes sedentary activity": [sedentary_minutes],
+                    "Waist Circumference": [waist_circ],
+                    "Systolic blood pressure": [systolic_bp],
+                    "Diastolic blood pressure": [diastolic_bp],
+                    "High-density lipoprotein": [hdl],
+                    "Triglyceride": [triglyceride],
+                    "Low-density lipoprotein": [ldl],
+                    "Fasting Glucose": [fasting_glucose],
+                    "Glycohemoglobin": [glycohemoglobin],
+                    "energy": [energy],
+                    "protein": [protein],
+                    "Dietary fiber": [dietary_fiber],
+                    "Potassium": [potassium],
+                    "Sodium": [sodium],
+                    "gender": [gender],
+                    "age": [age],
+                    "Race": [Race],
+                    "Marital status": [Marital_status],
+                    "alcohol": [alcohol],
+                    "smoke": [smoke],
+                    "sleep disorder": [sleep_disorder],
+                    "Health Insurance": [health_insurance],
+                    "General health condition": [general_health],
+                    "depression": [depression],
+                    "diabetes": [diabetes],
+                    "hypertension": [hypertension],
+                    "high cholesterol": [high_cholesterol],
+                    "Coronary Heart Disease": [coronary_heart_disease],
+                    "Body Mass Index": [bmi],
+                }
+                
+                # Crear DataFrame en el orden exacto que espera el modelo
+                input_data = pd.DataFrame(data_dict)[MODEL_INPUT_COLUMNS]
                 
                 # Mostrar datos ANTES del procesamiento
                 st.subheader("📊 Datos Antes del Procesamiento")

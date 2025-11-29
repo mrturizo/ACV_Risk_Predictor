@@ -5,11 +5,11 @@
 ; Información básica de la aplicación
 AppName=ACV Risk Predictor
 AppVersion=1.0.0
-AppPublisher=ACV Risk Predictor Team
+AppPublisher=mrturizo
 AppPublisherURL=https://github.com/mrturizo/ACV_Risk_Predictor
 AppSupportURL=https://github.com/mrturizo/ACV_Risk_Predictor/issues
 AppUpdatesURL=https://github.com/mrturizo/ACV_Risk_Predictor/releases
-AppCopyright=Copyright (C) 2024 ACV Risk Predictor Contributors
+AppCopyright=Copyright (C) 2024 mrturizo
 DefaultDirName={pf}\ACV_Risk_Predictor
 DefaultGroupName=ACV Risk Predictor
 AllowNoIcons=yes
@@ -28,9 +28,9 @@ SetupIconFile=icon.ico
 
 ; Información de versión
 VersionInfoVersion=1.0.0
-VersionInfoCompany=ACV Risk Predictor Team
-VersionInfoDescription=Aplicación para predicción de riesgo de ACV usando Machine Learning
-VersionInfoCopyright=Copyright (C) 2024
+VersionInfoCompany=mrturizo
+VersionInfoDescription=Sistema de predicción de riesgo de Accidente Cerebrovascular (ACV) basado en Machine Learning. Permite evaluar el riesgo de ACV mediante datos clínicos, demográficos y biomédicos.
+VersionInfoCopyright=Copyright (C) 2024 mrturizo
 VersionInfoProductName=ACV Risk Predictor
 VersionInfoProductVersion=1.0.0
 

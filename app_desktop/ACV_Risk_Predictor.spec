@@ -45,6 +45,9 @@ a = Analysis(
         *([(str(project_root / 'models'), 'models')] if (project_root / 'models').exists() else []),
         # Incluir config.py si existe
         *([(str(project_root / 'config.py'), '.')] if (project_root / 'config.py').exists() else []),
+        # Incluir iconos para que Tkinter pueda cargarlos dentro del .exe
+        *([(str(spec_dir / 'icon.ico'), '.')] if (spec_dir / 'icon.ico').exists() else []),
+        *([(str(spec_dir / 'icon.png'), '.')] if (spec_dir / 'icon.png').exists() else []),
     ],
     hiddenimports=[
         'pandas',
@@ -77,6 +80,9 @@ a = Analysis(
         'streamlit',  # No necesitamos Streamlit en la app de escritorio
         'matplotlib',  # Opcional
         'plotly',  # Opcional
+        'tensorflow',  # No usamos TensorFlow
+        'keras',  # No usamos Keras
+        'torch',  # No usamos PyTorch
     ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
@@ -108,6 +114,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='icon.ico' if Path('icon.ico').exists() else None,  # Icono de la aplicación
-    version='1.0.0',  # Versión de la aplicación
+    icon=str(spec_dir / 'icon.ico') if (spec_dir / 'icon.ico').exists() else None,  # Icono de la aplicación
 )
