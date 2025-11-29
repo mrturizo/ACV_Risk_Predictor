@@ -66,10 +66,8 @@ def load_predictor_cached():
             logger.error(f"PROJECT_ROOT: {MODELS_DIR.parent}")
             raise FileNotFoundError(f"El directorio de modelos no existe: {MODELS_DIR}")
         
-        # OBLIGATORIO: Solo usar lr_pca25_cw.pkl - NO buscar otros modelos
-        # ESTRATEGIA: En Streamlit Cloud (sin PyCaret), usar modelo convertido.
-        # En desarrollo local (con PyCaret), usar modelo original.
-        # Fallback final: usar best_stroke_model.pkl (sklearn puro)
+        # ESTRATEGIA: Intentar cargar modelos en orden de prioridad
+        # Si un modelo falla al cargar, intentar con el siguiente
         original_model = MODELS_DIR / "lr_pca25_cw.pkl"
         converted_model = MODELS_DIR / "lr_pca25_cw_sklearn.pkl"
         fallback_model = MODELS_DIR / "best_stroke_model.pkl"
@@ -77,24 +75,26 @@ def load_predictor_cached():
         # Verificar si PyCaret está disponible (importado en predictor.py)
         from core.predictor import PYCARET_AVAILABLE
         
-        if not PYCARET_AVAILABLE and converted_model.exists():
-            # Streamlit Cloud sin PyCaret - usar modelo convertido
-            required_model = converted_model
-            logger.info(f"✅ [Cloud] Modelo convertido encontrado (sklearn puro): {required_model}")
-        elif original_model.exists():
-            # Desarrollo local con PyCaret o fallback - usar modelo original
-            required_model = original_model
-            if PYCARET_AVAILABLE:
-                logger.info(f"✅ [Local] Usando modelo original con PyCaret: {required_model}")
-            else:
-                logger.warning(f"⚠️ [Fallback 1] Usando modelo original sin PyCaret: {required_model}")
-                logger.info("   Se intentará cargar con mocks de PyCaret")
-        elif fallback_model.exists():
-            # Fallback 2: usar best_stroke_model.pkl (sklearn puro, sin dependencias)
-            required_model = fallback_model
-            logger.warning(f"⚠️ [Fallback 2] Usando best_stroke_model.pkl (sklearn puro): {required_model}")
-            logger.info("   Este modelo no requiere PyCaret ni imblearn")
-        else:
+        # Lista de modelos a intentar en orden de prioridad
+        models_to_try = []
+        
+        if PYCARET_AVAILABLE and original_model.exists():
+            # Prioridad 1: Local con PyCaret - modelo original
+            models_to_try.append(("Local con PyCaret", original_model))
+        
+        if converted_model.exists():
+            # Prioridad 2: Cloud sin PyCaret - modelo convertido
+            models_to_try.append(("Cloud sin PyCaret", converted_model))
+        
+        if original_model.exists() and not PYCARET_AVAILABLE:
+            # Prioridad 3: Fallback 1 - modelo original sin PyCaret (con mocks)
+            models_to_try.append(("Fallback 1 (con mocks)", original_model))
+        
+        if fallback_model.exists():
+            # Prioridad 4: Fallback 2 - best_stroke_model.pkl (sklearn puro)
+            models_to_try.append(("Fallback 2 (sklearn puro)", fallback_model))
+        
+        if not models_to_try:
             error_msg = (
                 f"❌ ERROR CRÍTICO: No se encontró ningún modelo en {MODELS_DIR}. "
                 f"Se buscó: 'lr_pca25_cw.pkl', 'lr_pca25_cw_sklearn.pkl' y 'best_stroke_model.pkl'. "
@@ -103,20 +103,30 @@ def load_predictor_cached():
             logger.error(error_msg)
             raise FileNotFoundError(error_msg)
         
-        logger.info(f"✅ Modelo requerido encontrado: {required_model}")
-        try:
-            predictor = StrokePredictor(model_path=required_model)
-            logger.info(f"✅ Modelo cargado exitosamente: {type(predictor.model)}")
-            logger.info(f"✅ Ruta del modelo cargado: {predictor.model_path}")
-            return predictor
-        except Exception as load_err:
-            error_msg = (
-                f"❌ ERROR CRÍTICO: No se pudo cargar el modelo requerido 'lr_pca25_cw.pkl'. "
-                f"Error: {load_err}. Este modelo es OBLIGATORIO."
-            )
-            logger.error(error_msg)
-            logger.exception(load_err)
-            raise ValueError(error_msg)
+        # Intentar cargar cada modelo hasta que uno funcione
+        last_error = None
+        for model_name, model_path in models_to_try:
+            try:
+                logger.info(f"🔄 Intentando cargar modelo: {model_name} ({model_path.name})")
+                predictor = StrokePredictor(model_path=model_path)
+                logger.info(f"✅ Modelo cargado exitosamente: {model_name}")
+                logger.info(f"   Tipo: {type(predictor.model)}")
+                logger.info(f"   Ruta: {predictor.model_path}")
+                return predictor
+            except Exception as load_err:
+                logger.warning(f"⚠️ Falló al cargar {model_name}: {load_err}")
+                last_error = load_err
+                continue
+        
+        # Si todos los modelos fallaron
+        error_msg = (
+            f"❌ ERROR CRÍTICO: No se pudo cargar ningún modelo. "
+            f"Se intentaron {len(models_to_try)} modelos. "
+            f"Último error: {last_error}"
+        )
+        logger.error(error_msg)
+        logger.exception(last_error)
+        raise ValueError(error_msg)
         
     except (FileNotFoundError, ValueError) as e:
         # Re-lanzar errores específicos sin buscar alternativas

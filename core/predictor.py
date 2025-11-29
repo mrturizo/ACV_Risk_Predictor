@@ -297,34 +297,37 @@ class StrokePredictor:
         y si no existe, busca 'lr_pca25_cw.pkl' (modelo original).
         """
         if self.model_path is None:
+            # ESTRATEGIA: Seleccionar modelo basado en disponibilidad
+            # La carga real se intentará más abajo, y si falla, se puede manejar
             original_model = MODELS_DIR / "lr_pca25_cw.pkl"
             converted_model = MODELS_DIR / "lr_pca25_cw_sklearn.pkl"
+            fallback_model = MODELS_DIR / "best_stroke_model.pkl"
             
             # ESTRATEGIA: En local con PyCaret, usar el original. En Cloud sin PyCaret, usar el convertido
             if PYCARET_AVAILABLE and original_model.exists():
                 # Estamos en desarrollo local con PyCaret - usar modelo original
                 self.model_path = original_model
-                logger.info(f"✅ [Local con PyCaret] Usando modelo original: {self.model_path}")
+                logger.info(f"✅ [Local con PyCaret] Seleccionado modelo original: {self.model_path}")
             elif converted_model.exists():
                 # Estamos en Streamlit Cloud sin PyCaret - usar modelo convertido
                 self.model_path = converted_model
-                logger.info(f"✅ [Cloud sin PyCaret] Usando modelo convertido: {self.model_path}")
+                logger.info(f"✅ [Cloud sin PyCaret] Seleccionado modelo convertido: {self.model_path}")
             elif original_model.exists():
                 # Fallback 1: usar original aunque no tengamos PyCaret (intentará con mocks)
                 self.model_path = original_model
-                logger.warning(f"⚠️ [Fallback 1] Usando modelo original sin PyCaret: {self.model_path}")
+                logger.warning(f"⚠️ [Fallback 1] Seleccionado modelo original sin PyCaret: {self.model_path}")
                 logger.info("   Se intentará cargar con mocks de PyCaret")
-            elif (fallback_model := MODELS_DIR / "best_stroke_model.pkl").exists():
+            elif fallback_model.exists():
                 # Fallback 2: usar best_stroke_model.pkl (sklearn puro, sin dependencias)
                 self.model_path = fallback_model
-                logger.warning(f"⚠️ [Fallback 2] Usando best_stroke_model.pkl (sklearn puro): {self.model_path}")
+                logger.warning(f"⚠️ [Fallback 2] Seleccionado best_stroke_model.pkl (sklearn puro): {self.model_path}")
                 logger.info("   Este modelo no requiere PyCaret ni imblearn")
             else:
                 # Último recurso: buscar cualquier modelo .pkl
                 available_models = list(MODELS_DIR.glob("*.pkl"))
                 if available_models:
                     self.model_path = available_models[0]
-                    logger.warning(f"⚠️ [Último recurso] Usando modelo encontrado: {self.model_path}")
+                    logger.warning(f"⚠️ [Último recurso] Seleccionado modelo encontrado: {self.model_path}")
                 else:
                     error_msg = (
                         f"ERROR CRÍTICO: No se encontró ningún modelo en {MODELS_DIR}. "
