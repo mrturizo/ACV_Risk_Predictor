@@ -41,8 +41,13 @@ a = Analysis(
     ],
     binaries=[],
     datas=[
-        # Incluir modelos si existen
-        *([(str(project_root / 'models'), 'models')] if (project_root / 'models').exists() else []),
+        # Incluir modelos - CRÍTICO: incluir cada archivo del directorio models explícitamente
+        *([(str(project_root / 'models' / 'lr_pca25_cw.pkl'), 'models')] if (project_root / 'models' / 'lr_pca25_cw.pkl').exists() else []),
+        *([(str(project_root / 'models' / 'best_stroke_model.pkl'), 'models')] if (project_root / 'models' / 'best_stroke_model.pkl').exists() else []),
+        *([(str(project_root / 'models' / 'model_metadata.json'), 'models')] if (project_root / 'models' / 'model_metadata.json').exists() else []),
+        *([(str(project_root / 'models' / 'preprocessor_acv.pkl'), 'models')] if (project_root / 'models' / 'preprocessor_acv.pkl').exists() else []),
+        *([(str(project_root / 'models' / 'preprocessor_fixed.pkl'), 'models')] if (project_root / 'models' / 'preprocessor_fixed.pkl').exists() else []),
+        *([(str(project_root / 'models' / 'preprocessor.pkl'), 'models')] if (project_root / 'models' / 'preprocessor.pkl').exists() else []),
         # Incluir config.py si existe
         *([(str(project_root / 'config.py'), '.')] if (project_root / 'config.py').exists() else []),
         # Incluir iconos para que Tkinter pueda cargarlos dentro del .exe

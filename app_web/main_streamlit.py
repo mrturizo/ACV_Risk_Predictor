@@ -54,85 +54,80 @@ if 'input_data' not in st.session_state:
 
 @st.cache_resource
 def load_predictor_cached():
-    """Carga el predictor con cache para evitar recargar en cada ejecución."""
+    """Carga el predictor con cache para evitar recargar en cada ejecución.
+    
+    IMPORTANTE: Esta función SOLO carga el modelo 'lr_pca25_cw.pkl'.
+    No busca otros modelos como fallback.
+    """
     try:
         # Verificar que MODELS_DIR existe
         if not MODELS_DIR.exists():
             logger.error(f"MODELS_DIR no existe: {MODELS_DIR}")
             logger.error(f"PROJECT_ROOT: {MODELS_DIR.parent}")
-            if MOCK_AVAILABLE:
-                return StrokePredictorMock()
-            return None
+            raise FileNotFoundError(f"El directorio de modelos no existe: {MODELS_DIR}")
         
-        # Priorizar el modelo final definido por Data Science
-        preferred = MODELS_DIR / "lr_pca25_cw.pkl"
-        logger.info(f"Buscando modelo preferido en: {preferred}")
-        logger.info(f"¿Existe el archivo? {preferred.exists()}")
+        # OBLIGATORIO: Solo usar lr_pca25_cw.pkl - NO buscar otros modelos
+        required_model = MODELS_DIR / "lr_pca25_cw.pkl"
+        logger.info(f"Buscando modelo requerido: {required_model}")
+        logger.info(f"¿Existe el archivo? {required_model.exists()}")
         
-        if preferred.exists():
-            logger.info(f"✅ Modelo preferido encontrado: {preferred}")
-            try:
-                predictor = StrokePredictor(model_path=preferred)
-                logger.info(f"✅ Modelo cargado exitosamente: {type(predictor.model)}")
-                return predictor
-            except Exception as load_err:
-                logger.error(f"❌ Error al cargar el modelo {preferred}: {load_err}")
-                logger.exception(load_err)
-                # No caer en MOCK inmediatamente, intentar otros modelos
-                pass
-        else:
-            logger.warning(f"⚠️ Modelo preferido no encontrado: {preferred}")
-
-        # Buscar otros modelos .pkl
-        model_files = list(MODELS_DIR.glob("*.pkl"))
-        logger.info(f"Archivos .pkl encontrados en {MODELS_DIR}: {[f.name for f in model_files]}")
+        if not required_model.exists():
+            error_msg = (
+                f"❌ ERROR CRÍTICO: El modelo requerido 'lr_pca25_cw.pkl' no se encuentra en {MODELS_DIR}. "
+                f"Este modelo es OBLIGATORIO y no se pueden usar otros modelos como alternativa."
+            )
+            logger.error(error_msg)
+            raise FileNotFoundError(error_msg)
         
-        if model_files:
-            # Filtrar modelos preferidos (excluir preprocesadores)
-            non_preprocessor_models = [f for f in model_files if 'preprocessor' not in f.name.lower()]
-            if non_preprocessor_models:
-                selected_model = non_preprocessor_models[0]
-                logger.info(f"Intentando cargar modelo: {selected_model}")
-                try:
-                    predictor = StrokePredictor(model_path=selected_model)
-                    logger.info(f"✅ Modelo cargado exitosamente: {type(predictor.model)}")
-                    return predictor
-                except Exception as load_err:
-                    logger.error(f"❌ Error al cargar el modelo {selected_model}: {load_err}")
-                    logger.exception(load_err)
-            else:
-                logger.warning("⚠️ Solo se encontraron preprocesadores, no modelos")
-        else:
-            logger.error(f"❌ No se encontraron archivos .pkl en {MODELS_DIR}")
+        logger.info(f"✅ Modelo requerido encontrado: {required_model}")
+        try:
+            predictor = StrokePredictor(model_path=required_model)
+            logger.info(f"✅ Modelo cargado exitosamente: {type(predictor.model)}")
+            logger.info(f"✅ Ruta del modelo cargado: {predictor.model_path}")
+            return predictor
+        except Exception as load_err:
+            error_msg = (
+                f"❌ ERROR CRÍTICO: No se pudo cargar el modelo requerido 'lr_pca25_cw.pkl'. "
+                f"Error: {load_err}. Este modelo es OBLIGATORIO."
+            )
+            logger.error(error_msg)
+            logger.exception(load_err)
+            raise ValueError(error_msg)
         
-        # Si llegamos aquí, no se pudo cargar ningún modelo
-        logger.error("❌ No se pudo cargar ningún modelo. Usando MOCK como fallback.")
-        if MOCK_AVAILABLE:
-            return StrokePredictorMock()
-        return None
-        
+    except (FileNotFoundError, ValueError) as e:
+        # Re-lanzar errores específicos sin buscar alternativas
+        logger.error(f"❌ Error al cargar el modelo requerido: {e}")
+        raise
     except Exception as e:
-        logger.error(f"❌ Error crítico al cargar el modelo: {e}")
+        error_msg = f"❌ Error crítico inesperado al cargar el modelo: {e}"
+        logger.error(error_msg)
         logger.exception(e)
-        if MOCK_AVAILABLE:
-            logger.warning("⚠️ Usando predictor MOCK como fallback")
-            return StrokePredictorMock()
-        return None
+        raise RuntimeError(error_msg)
 
 def load_predictor():
-    """Carga el predictor si no está cargado (usa cache)."""
+    """Carga el predictor si no está cargado (usa cache).
+    
+    IMPORTANTE: Solo carga 'lr_pca25_cw.pkl'. No usa MOCK como fallback.
+    """
     if st.session_state.predictor is None:
-        predictor = load_predictor_cached()
-        if predictor is None:
-            st.warning("⚠️ No se encontró ningún modelo")
-            if MOCK_AVAILABLE:
-                st.info("💡 Usando predictor MOCK para pruebas")
-                st.session_state.predictor = StrokePredictorMock()
-                return True
-            else:
-                st.info("💡 Ejecuta `python ml_models/scripts/train_dummy.py` para generar un modelo de prueba.")
+        try:
+            predictor = load_predictor_cached()
+            if predictor is None:
+                st.error("❌ ERROR CRÍTICO: No se pudo cargar el modelo requerido 'lr_pca25_cw.pkl'")
+                st.error("Este modelo es OBLIGATORIO. Por favor, verifica que el archivo existe en la carpeta 'models/'.")
                 return False
-        st.session_state.predictor = predictor
+            st.session_state.predictor = predictor
+            return True
+        except (FileNotFoundError, ValueError, RuntimeError) as e:
+            st.error(f"❌ ERROR CRÍTICO: No se pudo cargar el modelo requerido 'lr_pca25_cw.pkl'")
+            st.error(f"Detalles: {str(e)}")
+            st.error("Este modelo es OBLIGATORIO. Por favor, verifica que el archivo existe en la carpeta 'models/'.")
+            logger.exception(e)
+            return False
+        except Exception as e:
+            st.error(f"❌ Error inesperado al cargar el modelo: {str(e)}")
+            logger.exception(e)
+            return False
     return True
 
 
@@ -160,8 +155,8 @@ def render_sidebar():
         if st.session_state.predictor is not None:
             is_mock = isinstance(st.session_state.predictor, StrokePredictorMock) if MOCK_AVAILABLE else False
             if is_mock:
-                st.warning("⚠️ Modo MOCK (sin PyCaret)")
-                st.caption("Usando predictor simulado para pruebas")
+                st.error("❌ ERROR: Modo MOCK no permitido")
+                st.caption("El modelo requerido 'lr_pca25_cw.pkl' no está disponible")
                 # Mostrar información de diagnóstico
                 with st.expander("🔍 Diagnóstico - ¿Por qué MOCK?"):
                     st.write(f"**MODELS_DIR:** `{MODELS_DIR}`")
@@ -169,18 +164,27 @@ def render_sidebar():
                     if MODELS_DIR.exists():
                         pkl_files = list(MODELS_DIR.glob("*.pkl"))
                         st.write(f"**Archivos .pkl encontrados:** {[f.name for f in pkl_files]}")
-                        preferred = MODELS_DIR / "lr_pca25_cw.pkl"
-                        st.write(f"**lr_pca25_cw.pkl existe?** {preferred.exists()}")
+                        required_model = MODELS_DIR / "lr_pca25_cw.pkl"
+                        st.write(f"**lr_pca25_cw.pkl existe?** {required_model.exists()}")
+                        if not required_model.exists():
+                            st.error("❌ El modelo requerido 'lr_pca25_cw.pkl' NO existe")
                     st.write("**Revisa los logs del servidor para más detalles.**")
             else:
                 st.success("✅ Modelo cargado")
                 if hasattr(st.session_state.predictor, 'model_path'):
-                    st.caption(f"Modelo: {st.session_state.predictor.model_path.name}")
+                    model_name = st.session_state.predictor.model_path.name
+                    st.caption(f"Modelo: {model_name}")
+                    # Verificar que es el modelo correcto
+                    if model_name != "lr_pca25_cw.pkl":
+                        st.warning(f"⚠️ ADVERTENCIA: Se está usando '{model_name}' en lugar de 'lr_pca25_cw.pkl'")
+                    else:
+                        st.caption("✅ Modelo correcto: lr_pca25_cw.pkl")
                     if hasattr(st.session_state.predictor, 'is_pycaret_model'):
                         model_type = "PyCaret Pipeline" if st.session_state.predictor.is_pycaret_model else "sklearn"
                         st.caption(f"Tipo: {model_type}")
         else:
             st.warning("⚠️ Modelo no cargado")
+            st.caption("Modelo requerido: lr_pca25_cw.pkl")
             if st.button("🔄 Cargar Modelo", use_container_width=True):
                 load_predictor()
 

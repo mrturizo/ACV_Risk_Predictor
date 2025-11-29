@@ -50,23 +50,24 @@ class StrokePredictor:
         self._load_model()
     
     def _load_model(self) -> None:
-        """Carga el modelo PyCaret o sklearn desde el archivo especificado."""
+        """Carga el modelo PyCaret o sklearn desde el archivo especificado.
+        
+        IMPORTANTE: Si model_path es None, SOLO busca 'lr_pca25_cw.pkl'.
+        No busca otros modelos como fallback.
+        """
         if self.model_path is None:
-            # Buscar modelo en la carpeta models/
-            # Priorizar explícitamente lr_pca25_cw.pkl (modelo final acordado)
-            preferred = MODELS_DIR / "lr_pca25_cw.pkl"
-            if preferred.exists():
-                self.model_path = preferred
-                logger.info(f"Modelo preferido seleccionado automáticamente: {self.model_path}")
+            # OBLIGATORIO: Solo usar lr_pca25_cw.pkl - NO buscar otros modelos
+            required_model = MODELS_DIR / "lr_pca25_cw.pkl"
+            if required_model.exists():
+                self.model_path = required_model
+                logger.info(f"✅ Modelo requerido seleccionado automáticamente: {self.model_path}")
             else:
-                model_files = list(MODELS_DIR.glob("*.pkl"))
-                if not model_files:
-                    raise FileNotFoundError(
-                        f"No se encontró ningún modelo .pkl en {MODELS_DIR}. "
-                        "Ejecuta ml_models/scripts/train_dummy.py para generar un modelo de prueba."
-                    )
-                self.model_path = model_files[0]
-                logger.info(f"Modelo encontrado automáticamente: {self.model_path}")
+                error_msg = (
+                    f"ERROR CRÍTICO: El modelo requerido 'lr_pca25_cw.pkl' no se encuentra en {MODELS_DIR}. "
+                    f"Este modelo es OBLIGATORIO y no se pueden usar otros modelos como alternativa."
+                )
+                logger.error(error_msg)
+                raise FileNotFoundError(error_msg)
         
         if not self.model_path.exists():
             raise FileNotFoundError(f"El archivo del modelo no existe: {self.model_path}")

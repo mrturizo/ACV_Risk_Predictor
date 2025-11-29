@@ -67,12 +67,17 @@ def get_models_dir() -> Path:
     Returns:
         Path al directorio de modelos.
     """
+    # CRÍTICO: En un .exe, PyInstaller descomprime los archivos en _MEIPASS
+    # Por lo tanto, DEBEMOS buscar primero en _MEIPASS/models
+    if hasattr(sys, '_MEIPASS'):
+        # Estamos en un .exe - buscar en _MEIPASS primero
+        models_dir = Path(sys._MEIPASS) / "models"
+        if models_dir.exists():
+            return models_dir
+    
+    # Si no estamos en .exe o no existe en _MEIPASS, buscar en la raíz del proyecto
     project_root = get_project_root()
     models_dir = project_root / "models"
-    
-    # Si no existe en la raíz, intentar en _MEIPASS (si estamos en .exe)
-    if not models_dir.exists() and hasattr(sys, '_MEIPASS'):
-        models_dir = Path(sys._MEIPASS) / "models"
     
     return models_dir
 

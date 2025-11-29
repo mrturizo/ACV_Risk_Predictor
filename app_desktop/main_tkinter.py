@@ -8,6 +8,7 @@ import sys
 import pandas as pd
 from datetime import datetime
 import traceback
+import logging
 
 # Agregar el directorio raíz al path para importar core
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -33,6 +34,13 @@ except ImportError:
 
 # Importar utilidades de escritorio
 from app_desktop.utils_desktop import resource_path, get_models_dir
+
+# Configurar logger
+logger = logging.getLogger(__name__)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 
 
 class StrokeApp(tk.Tk):
@@ -234,50 +242,61 @@ class StrokeApp(tk.Tk):
         self.geometry(f'{width}x{height}+{x}+{y}')
     
     def load_predictor(self):
-        """Carga el predictor de modelos."""
+        """Carga el predictor de modelos.
+        
+        IMPORTANTE: Solo carga 'lr_pca25_cw.pkl'. No busca otros modelos como fallback.
+        """
         try:
             # Intentar encontrar modelo usando resource_path para compatibilidad con PyInstaller
             models_dir = get_models_dir()
-            # Priorizar el modelo final lr_pca25_cw.pkl
-            preferred = models_dir / "lr_pca25_cw.pkl"
-            if preferred.exists():
-                model_file = preferred
-            else:
-                model_files = list(models_dir.glob("*.pkl"))
-                if not model_files:
-                    model_file = None
-                else:
-                    model_file = model_files[0]
             
-            if model_file is not None:
-                # Usar resource_path para asegurar compatibilidad con .exe
-                relative_path = f"models/{model_file.name}"
-                model_path = resource_path(relative_path)
-                
-                # Si el modelo no existe en la ruta de resource_path, usar la ruta encontrada
-                if not model_path.exists():
-                    model_path = model_file
-                
-                self.predictor = StrokePredictor(model_path=model_path)
-            else:
-                # Si no hay modelo, usar MOCK si está disponible
-                if MOCK_AVAILABLE:
-                    self.predictor = StrokePredictorMock()
-                else:
-                    raise FileNotFoundError("No se encontró ningún modelo")
-                    
-        except (FileNotFoundError, ImportError) as e:
-            # Usar MOCK como fallback
-            if MOCK_AVAILABLE:
-                self.predictor = StrokePredictorMock()
-            else:
-                messagebox.showerror(
-                    "Error",
-                    f"No se pudo cargar el modelo:\n{str(e)}\n\n"
-                    "La aplicación usará modo MOCK para pruebas."
+            # OBLIGATORIO: Solo usar lr_pca25_cw.pkl - NO buscar otros modelos
+            required_model = models_dir / "lr_pca25_cw.pkl"
+            
+            if not required_model.exists():
+                error_msg = (
+                    f"ERROR CRÍTICO: El modelo requerido 'lr_pca25_cw.pkl' no se encuentra en {models_dir}.\n"
+                    f"Este modelo es OBLIGATORIO y no se pueden usar otros modelos como alternativa."
                 )
-                # Crear predictor mock manualmente si no está disponible
-                self.predictor = None
+                raise FileNotFoundError(error_msg)
+            
+            # Usar resource_path para asegurar compatibilidad con .exe
+            relative_path = f"models/{required_model.name}"
+            model_path = resource_path(relative_path)
+            
+            # Si el modelo no existe en la ruta de resource_path, usar la ruta encontrada
+            if not model_path.exists():
+                model_path = required_model
+            
+            # Verificar que el nombre del archivo sea correcto
+            if model_path.name != "lr_pca25_cw.pkl":
+                error_msg = (
+                    f"ERROR CRÍTICO: Se intentó cargar '{model_path.name}' en lugar de 'lr_pca25_cw.pkl'.\n"
+                    f"Este modelo es OBLIGATORIO."
+                )
+                raise ValueError(error_msg)
+            
+            self.predictor = StrokePredictor(model_path=model_path)
+            logger.info(f"✅ Modelo requerido cargado exitosamente: {model_path}")
+                    
+        except (FileNotFoundError, ValueError) as e:
+            # No usar MOCK como fallback - mostrar error crítico
+            error_msg = (
+                f"ERROR CRÍTICO: No se pudo cargar el modelo requerido 'lr_pca25_cw.pkl'.\n\n"
+                f"Detalles: {str(e)}\n\n"
+                f"Este modelo es OBLIGATORIO. Por favor, verifica que el archivo existe en:\n"
+                f"{models_dir}"
+            )
+            messagebox.showerror("Error Crítico", error_msg)
+            logger.error(error_msg)
+            self.predictor = None
+        except Exception as e:
+            error_msg = (
+                f"Error inesperado al cargar el modelo requerido 'lr_pca25_cw.pkl':\n{str(e)}"
+            )
+            messagebox.showerror("Error", error_msg)
+            logger.exception(e)
+            self.predictor = None
     
     def create_widgets(self):
         """Crea todos los widgets de la interfaz."""
