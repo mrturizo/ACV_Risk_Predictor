@@ -67,21 +67,30 @@ def load_predictor_cached():
             raise FileNotFoundError(f"El directorio de modelos no existe: {MODELS_DIR}")
         
         # OBLIGATORIO: Solo usar lr_pca25_cw.pkl - NO buscar otros modelos
-        # PRIORIDAD 1: Buscar modelo convertido (sklearn puro, sin dependencias de PyCaret)
-        converted_model = MODELS_DIR / "lr_pca25_cw_sklearn.pkl"
+        # ESTRATEGIA: En Streamlit Cloud (sin PyCaret), usar modelo convertido.
+        # En desarrollo local (con PyCaret), usar modelo original.
         original_model = MODELS_DIR / "lr_pca25_cw.pkl"
+        converted_model = MODELS_DIR / "lr_pca25_cw_sklearn.pkl"
         
-        if converted_model.exists():
+        # Verificar si PyCaret está disponible (importado en predictor.py)
+        from core.predictor import PYCARET_AVAILABLE
+        
+        if not PYCARET_AVAILABLE and converted_model.exists():
+            # Streamlit Cloud sin PyCaret - usar modelo convertido
             required_model = converted_model
-            logger.info(f"✅ Modelo convertido encontrado (sklearn puro): {required_model}")
+            logger.info(f"✅ [Cloud] Modelo convertido encontrado (sklearn puro): {required_model}")
         elif original_model.exists():
+            # Desarrollo local con PyCaret o fallback - usar modelo original
             required_model = original_model
-            logger.warning(f"⚠️ Usando modelo original (requiere PyCaret): {required_model}")
-            logger.info("   Considera convertir el modelo ejecutando: python ml_models/scripts/convert_pycaret_to_sklearn.py")
+            if PYCARET_AVAILABLE:
+                logger.info(f"✅ [Local] Usando modelo original con PyCaret: {required_model}")
+            else:
+                logger.warning(f"⚠️ [Fallback] Usando modelo original sin PyCaret: {required_model}")
+                logger.info("   Se intentará cargar con mocks de PyCaret")
         else:
             error_msg = (
                 f"❌ ERROR CRÍTICO: No se encontró ningún modelo en {MODELS_DIR}. "
-                f"Se buscó: 'lr_pca25_cw_sklearn.pkl' y 'lr_pca25_cw.pkl'. "
+                f"Se buscó: 'lr_pca25_cw.pkl' y 'lr_pca25_cw_sklearn.pkl'. "
                 f"Este modelo es OBLIGATORIO."
             )
             logger.error(error_msg)
