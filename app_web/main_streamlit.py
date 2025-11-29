@@ -36,9 +36,9 @@ except ImportError:
     MOCK_AVAILABLE = False
 
 # Configuración de página
-st.set_page_config(
-    page_title="ACV Risk Predictor",
-    page_icon="🏥",
+    st.set_page_config(
+        page_title="ACV Risk Predictor",
+        page_icon="🏥",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -67,14 +67,22 @@ def load_predictor_cached():
             raise FileNotFoundError(f"El directorio de modelos no existe: {MODELS_DIR}")
         
         # OBLIGATORIO: Solo usar lr_pca25_cw.pkl - NO buscar otros modelos
-        required_model = MODELS_DIR / "lr_pca25_cw.pkl"
-        logger.info(f"Buscando modelo requerido: {required_model}")
-        logger.info(f"¿Existe el archivo? {required_model.exists()}")
+        # PRIORIDAD 1: Buscar modelo convertido (sklearn puro, sin dependencias de PyCaret)
+        converted_model = MODELS_DIR / "lr_pca25_cw_sklearn.pkl"
+        original_model = MODELS_DIR / "lr_pca25_cw.pkl"
         
-        if not required_model.exists():
+        if converted_model.exists():
+            required_model = converted_model
+            logger.info(f"✅ Modelo convertido encontrado (sklearn puro): {required_model}")
+        elif original_model.exists():
+            required_model = original_model
+            logger.warning(f"⚠️ Usando modelo original (requiere PyCaret): {required_model}")
+            logger.info("   Considera convertir el modelo ejecutando: python ml_models/scripts/convert_pycaret_to_sklearn.py")
+        else:
             error_msg = (
-                f"❌ ERROR CRÍTICO: El modelo requerido 'lr_pca25_cw.pkl' no se encuentra en {MODELS_DIR}. "
-                f"Este modelo es OBLIGATORIO y no se pueden usar otros modelos como alternativa."
+                f"❌ ERROR CRÍTICO: No se encontró ningún modelo en {MODELS_DIR}. "
+                f"Se buscó: 'lr_pca25_cw_sklearn.pkl' y 'lr_pca25_cw.pkl'. "
+                f"Este modelo es OBLIGATORIO."
             )
             logger.error(error_msg)
             raise FileNotFoundError(error_msg)

@@ -293,19 +293,26 @@ class StrokePredictor:
     def _load_model(self) -> None:
         """Carga el modelo PyCaret o sklearn desde el archivo especificado.
         
-        IMPORTANTE: Si model_path es None, SOLO busca 'lr_pca25_cw.pkl'.
-        No busca otros modelos como fallback.
+        IMPORTANTE: Si model_path es None, busca primero 'lr_pca25_cw_sklearn.pkl' (modelo convertido),
+        y si no existe, busca 'lr_pca25_cw.pkl' (modelo original).
         """
         if self.model_path is None:
-            # OBLIGATORIO: Solo usar lr_pca25_cw.pkl - NO buscar otros modelos
-            required_model = MODELS_DIR / "lr_pca25_cw.pkl"
-            if required_model.exists():
-                self.model_path = required_model
-                logger.info(f"✅ Modelo requerido seleccionado automáticamente: {self.model_path}")
+            # PRIORIDAD 1: Buscar modelo convertido (sklearn puro, sin dependencias de PyCaret)
+            converted_model = MODELS_DIR / "lr_pca25_cw_sklearn.pkl"
+            original_model = MODELS_DIR / "lr_pca25_cw.pkl"
+            
+            if converted_model.exists():
+                self.model_path = converted_model
+                logger.info(f"✅ Modelo convertido encontrado (sklearn puro): {self.model_path}")
+            elif original_model.exists():
+                self.model_path = original_model
+                logger.warning(f"⚠️ Usando modelo original (requiere PyCaret): {self.model_path}")
+                logger.info("   Considera convertir el modelo ejecutando: python ml_models/scripts/convert_pycaret_to_sklearn.py")
             else:
                 error_msg = (
-                    f"ERROR CRÍTICO: El modelo requerido 'lr_pca25_cw.pkl' no se encuentra en {MODELS_DIR}. "
-                    f"Este modelo es OBLIGATORIO y no se pueden usar otros modelos como alternativa."
+                    f"ERROR CRÍTICO: No se encontró ningún modelo en {MODELS_DIR}. "
+                    f"Se buscó: 'lr_pca25_cw_sklearn.pkl' y 'lr_pca25_cw.pkl'. "
+                    f"Este modelo es OBLIGATORIO."
                 )
                 logger.error(error_msg)
                 raise FileNotFoundError(error_msg)

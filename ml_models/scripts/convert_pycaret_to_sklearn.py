@@ -32,23 +32,72 @@ def extract_sklearn_pipeline(pycaret_model_path: Path) -> object:
     """
     logger.info(f"Cargando modelo PyCaret desde: {pycaret_model_path}")
     
+    loaded_obj = None
+    
+    # Intentar cargar con joblib primero
     try:
-        # Intentar cargar con joblib primero
-        model = joblib.load(pycaret_model_path)
-        logger.info(f"Modelo cargado con joblib. Tipo: {type(model)}")
+        loaded_obj = joblib.load(pycaret_model_path)
+        logger.info(f"Modelo cargado con joblib. Tipo: {type(loaded_obj)}")
     except Exception as e:
         logger.warning(f"Fallo joblib.load: {e}. Intentando con pickle...")
+        # CRÍTICO: El archivo puede contener múltiples objetos serializados
+        # Intentar cargar todos los objetos del archivo
+        objects_loaded = []
         with open(pycaret_model_path, 'rb') as f:
-            model = pickle.load(f)
-        logger.info(f"Modelo cargado con pickle. Tipo: {type(model)}")
+            try:
+                # Intentar cargar todos los objetos del archivo
+                while True:
+                    try:
+                        obj = pickle.load(f)
+                        objects_loaded.append(obj)
+                        logger.info(f"Objeto {len(objects_loaded)} cargado: {type(obj)}")
+                    except EOFError:
+                        logger.info(f"Fin del archivo. Total de objetos cargados: {len(objects_loaded)}")
+                        break
+            except Exception as e2:
+                logger.warning(f"Error al cargar objetos: {e2}")
+        
+        # Buscar el primer objeto que tenga métodos predict/predict_proba o sea un Pipeline
+        for i, obj in enumerate(objects_loaded):
+            # Verificar si es un Pipeline o tiene métodos predict
+            if hasattr(obj, 'steps') or hasattr(obj, 'named_steps'):
+                loaded_obj = obj
+                logger.info(f"✅ Usando objeto {i+1}/{len(objects_loaded)} (tiene steps/named_steps): {type(loaded_obj)}")
+                break
+            elif hasattr(obj, 'predict') or hasattr(obj, 'predict_proba'):
+                loaded_obj = obj
+                logger.info(f"✅ Usando objeto {i+1}/{len(objects_loaded)} (tiene métodos predict): {type(loaded_obj)}")
+                break
+            elif isinstance(obj, dict):
+                # Si es un diccionario, buscar dentro
+                for key in ['model', 'pipeline', 'estimator', 'final_model', 'best_model']:
+                    if key in obj:
+                        candidate = obj[key]
+                        if hasattr(candidate, 'steps') or hasattr(candidate, 'named_steps') or hasattr(candidate, 'predict'):
+                            loaded_obj = candidate
+                            logger.info(f"✅ Usando objeto {i+1}/{len(objects_loaded)} en clave '{key}': {type(loaded_obj)}")
+                            break
+                    if loaded_obj is not None:
+                        break
+        
+        # Si no se encontró ningún objeto válido, usar el último (puede ser el Pipeline)
+        if loaded_obj is None and objects_loaded:
+            logger.warning("No se encontró objeto con métodos predict, usando el último objeto cargado")
+            loaded_obj = objects_loaded[-1]
+    
+    if loaded_obj is None:
+        raise ValueError("No se pudo cargar ningún objeto válido del archivo")
     
     # El modelo de PyCaret es un Pipeline de sklearn
-    # Verificar que tenga el atributo 'steps' o 'named_steps'
-    if hasattr(model, 'steps') or hasattr(model, 'named_steps'):
+    # Verificar que tenga el atributo 'steps' o 'named_steps' o métodos predict
+    if hasattr(loaded_obj, 'steps') or hasattr(loaded_obj, 'named_steps'):
         logger.info("✅ Modelo es un Pipeline de sklearn. Se puede usar directamente.")
-        return model
+        return loaded_obj
+    elif hasattr(loaded_obj, 'predict') or hasattr(loaded_obj, 'predict_proba'):
+        logger.info("✅ Modelo tiene métodos predict/predict_proba. Se puede usar directamente.")
+        return loaded_obj
     else:
-        raise ValueError(f"El modelo no es un Pipeline de sklearn. Tipo: {type(model)}")
+        raise ValueError(f"El modelo no es un Pipeline de sklearn ni tiene métodos predict. Tipo: {type(loaded_obj)}")
 
 
 def save_sklearn_model(pipeline: object, output_path: Path) -> None:
