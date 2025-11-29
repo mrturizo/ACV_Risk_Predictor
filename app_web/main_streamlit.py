@@ -69,8 +69,10 @@ def load_predictor_cached():
         # OBLIGATORIO: Solo usar lr_pca25_cw.pkl - NO buscar otros modelos
         # ESTRATEGIA: En Streamlit Cloud (sin PyCaret), usar modelo convertido.
         # En desarrollo local (con PyCaret), usar modelo original.
+        # Fallback final: usar best_stroke_model.pkl (sklearn puro)
         original_model = MODELS_DIR / "lr_pca25_cw.pkl"
         converted_model = MODELS_DIR / "lr_pca25_cw_sklearn.pkl"
+        fallback_model = MODELS_DIR / "best_stroke_model.pkl"
         
         # Verificar si PyCaret está disponible (importado en predictor.py)
         from core.predictor import PYCARET_AVAILABLE
@@ -85,12 +87,17 @@ def load_predictor_cached():
             if PYCARET_AVAILABLE:
                 logger.info(f"✅ [Local] Usando modelo original con PyCaret: {required_model}")
             else:
-                logger.warning(f"⚠️ [Fallback] Usando modelo original sin PyCaret: {required_model}")
+                logger.warning(f"⚠️ [Fallback 1] Usando modelo original sin PyCaret: {required_model}")
                 logger.info("   Se intentará cargar con mocks de PyCaret")
+        elif fallback_model.exists():
+            # Fallback 2: usar best_stroke_model.pkl (sklearn puro, sin dependencias)
+            required_model = fallback_model
+            logger.warning(f"⚠️ [Fallback 2] Usando best_stroke_model.pkl (sklearn puro): {required_model}")
+            logger.info("   Este modelo no requiere PyCaret ni imblearn")
         else:
             error_msg = (
                 f"❌ ERROR CRÍTICO: No se encontró ningún modelo en {MODELS_DIR}. "
-                f"Se buscó: 'lr_pca25_cw.pkl' y 'lr_pca25_cw_sklearn.pkl'. "
+                f"Se buscó: 'lr_pca25_cw.pkl', 'lr_pca25_cw_sklearn.pkl' y 'best_stroke_model.pkl'. "
                 f"Este modelo es OBLIGATORIO."
             )
             logger.error(error_msg)
