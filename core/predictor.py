@@ -181,6 +181,33 @@ def _create_pycaret_mocks():
         pycaret_classification_mock = types.ModuleType('pycaret.classification')
         sys.modules['pycaret.classification'] = pycaret_classification_mock
     
+    # CRÍTICO: Crear mocks para imblearn (imbalanced-learn) - usado por PyCaret para balanceo
+    if 'imblearn' not in sys.modules:
+        imblearn_mock = types.ModuleType('imblearn')
+        sys.modules['imblearn'] = imblearn_mock
+    
+    if 'imblearn.over_sampling' not in sys.modules:
+        imblearn_over_sampling_mock = types.ModuleType('imblearn.over_sampling')
+        sys.modules['imblearn.over_sampling'] = imblearn_over_sampling_mock
+        
+        # Crear clase mock para SMOTE
+        class MockSMOTE:
+            """Clase mock para SMOTE de imblearn."""
+            def __init__(self, *args, **kwargs):
+                pass
+            
+            def __getstate__(self):
+                return {}
+            
+            def __setstate__(self, state):
+                pass
+        
+        imblearn_over_sampling_mock.SMOTE = MockSMOTE
+    
+    if 'imblearn.pipeline' not in sys.modules:
+        imblearn_pipeline_mock = types.ModuleType('imblearn.pipeline')
+        sys.modules['imblearn.pipeline'] = imblearn_pipeline_mock
+    
     # Crear otros módulos internos comunes que pueden ser referenciados
     # IMPORTANTE: Crear TODOS los módulos que pickle puede intentar importar
     internal_modules = [
@@ -379,40 +406,40 @@ class StrokePredictor:
                 # Intentar cargar todos los objetos hasta encontrar uno válido
                 loaded_obj = None
                 with open(self.model_path, "rb") as f:
+                    objects_loaded = []
                     try:
-                        # Intentar cargar el primer objeto
-                        loaded_obj = pickle.load(f)
-                        logger.info(f"Primer objeto cargado: {type(loaded_obj)}")
-                        
-                        # Si es un numpy.ndarray, intentar cargar más objetos
-                        if isinstance(loaded_obj, np.ndarray):
-                            logger.warning("Primer objeto es numpy.ndarray, buscando más objetos en el archivo...")
+                        # Intentar cargar todos los objetos del archivo
+                        while True:
                             try:
-                                # Intentar cargar el siguiente objeto
-                                next_obj = pickle.load(f)
-                                logger.info(f"Siguiente objeto cargado: {type(next_obj)}")
-                                
-                                # Si el siguiente objeto tiene métodos predict, usarlo
-                                if hasattr(next_obj, 'predict') or hasattr(next_obj, 'predict_proba'):
-                                    loaded_obj = next_obj
-                                    logger.info(f"✅ Usando segundo objeto (tiene métodos predict): {type(loaded_obj)}")
-                                else:
-                                    # Intentar cargar más objetos
-                                    while True:
-                                        try:
-                                            next_obj = pickle.load(f)
-                                            logger.info(f"Objeto adicional cargado: {type(next_obj)}")
-                                            if hasattr(next_obj, 'predict') or hasattr(next_obj, 'predict_proba'):
-                                                loaded_obj = next_obj
-                                                logger.info(f"✅ Usando objeto con métodos predict: {type(loaded_obj)}")
-                                                break
-                                        except EOFError:
-                                            logger.warning("Fin del archivo alcanzado")
-                                            break
+                                obj = pickle.load(f)
+                                objects_loaded.append(obj)
+                                logger.info(f"Objeto {len(objects_loaded)} cargado: {type(obj)}")
                             except EOFError:
-                                logger.warning("Solo hay un objeto en el archivo (numpy.ndarray)")
-                    except EOFError:
-                        logger.error("El archivo está vacío o corrupto")
+                                logger.info(f"Fin del archivo. Total de objetos cargados: {len(objects_loaded)}")
+                                break
+                    except Exception as e:
+                        logger.warning(f"Error al cargar objetos: {e}")
+                    
+                    # Buscar el primer objeto que tenga métodos predict/predict_proba
+                    for i, obj in enumerate(objects_loaded):
+                        if hasattr(obj, 'predict') or hasattr(obj, 'predict_proba'):
+                            loaded_obj = obj
+                            logger.info(f"✅ Usando objeto {i+1}/{len(objects_loaded)} (tiene métodos predict): {type(loaded_obj)}")
+                            break
+                        elif isinstance(obj, dict):
+                            # Si es un diccionario, buscar dentro
+                            for key in ['model', 'pipeline', 'estimator', 'final_model', 'best_model']:
+                                if key in obj and (hasattr(obj[key], 'predict') or hasattr(obj[key], 'predict_proba')):
+                                    loaded_obj = obj[key]
+                                    logger.info(f"✅ Usando objeto {i+1}/{len(objects_loaded)} en clave '{key}': {type(loaded_obj)}")
+                                    break
+                            if loaded_obj is not None:
+                                break
+                    
+                    # Si no se encontró ningún objeto válido, usar el último (puede ser el Pipeline)
+                    if loaded_obj is None and objects_loaded:
+                        logger.warning("No se encontró objeto con métodos predict, usando el último objeto cargado")
+                        loaded_obj = objects_loaded[-1]
                 
                 # Manejar diccionarios o múltiples objetos
                 if loaded_obj is not None and isinstance(loaded_obj, dict):
