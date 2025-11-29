@@ -276,8 +276,28 @@ class StrokePredictor:
             # hayamos creado los módulos mock de PyCaret arriba.
             try:
                 import joblib
-                self.model = joblib.load(self.model_path)
-                logger.info("Modelo cargado con joblib.load()")
+                loaded_obj = joblib.load(self.model_path)
+                
+                # CRÍTICO: El archivo puede contener múltiples objetos o un diccionario
+                # Si es un diccionario, buscar el modelo (pipeline o estimador)
+                if isinstance(loaded_obj, dict):
+                    logger.info(f"Archivo contiene diccionario con {len(loaded_obj)} claves: {list(loaded_obj.keys())[:5]}")
+                    # Buscar el modelo en claves comunes
+                    for key in ['model', 'pipeline', 'estimator', 'final_model', 'best_model']:
+                        if key in loaded_obj:
+                            loaded_obj = loaded_obj[key]
+                            logger.info(f"Modelo encontrado en clave '{key}': {type(loaded_obj)}")
+                            break
+                    # Si no se encontró, usar el primer valor que tenga métodos predict
+                    if isinstance(loaded_obj, dict):
+                        for key, value in loaded_obj.items():
+                            if hasattr(value, 'predict') or hasattr(value, 'predict_proba'):
+                                loaded_obj = value
+                                logger.info(f"Modelo encontrado en clave '{key}': {type(loaded_obj)}")
+                                break
+                
+                self.model = loaded_obj
+                logger.info(f"Modelo cargado con joblib.load(): {type(self.model)}")
             except (ModuleNotFoundError, ImportError) as import_err:
                 # Si el error es por falta de PyCaret, los mocks deberían haberlo resuelto
                 # pero si aún falla, intentar recrear mocks y cargar con pickle
@@ -289,24 +309,95 @@ class StrokePredictor:
                         _create_pycaret_mocks()
                     import pickle
                     with open(self.model_path, "rb") as f:
-                        self.model = pickle.load(f)
+                        loaded_obj = pickle.load(f)
+                    
+                    # Manejar diccionarios o múltiples objetos
+                    if isinstance(loaded_obj, dict):
+                        logger.info(f"Archivo contiene diccionario con {len(loaded_obj)} claves: {list(loaded_obj.keys())[:5]}")
+                        for key in ['model', 'pipeline', 'estimator', 'final_model', 'best_model']:
+                            if key in loaded_obj:
+                                loaded_obj = loaded_obj[key]
+                                logger.info(f"Modelo encontrado en clave '{key}': {type(loaded_obj)}")
+                                break
+                        if isinstance(loaded_obj, dict):
+                            for key, value in loaded_obj.items():
+                                if hasattr(value, 'predict') or hasattr(value, 'predict_proba'):
+                                    loaded_obj = value
+                                    logger.info(f"Modelo encontrado en clave '{key}': {type(loaded_obj)}")
+                                    break
+                    
+                    self.model = loaded_obj
                     logger.info("Modelo cargado con pickle.load() después de recrear mocks")
                 else:
                     # Si es otro error de importación, intentar con pickle
                     logger.warning(f"Fallo joblib.load({self.model_path}): {import_err}. Probando con pickle.load()...")
                     import pickle
                     with open(self.model_path, "rb") as f:
-                        self.model = pickle.load(f)
+                        loaded_obj = pickle.load(f)
+                    
+                    # Manejar diccionarios o múltiples objetos
+                    if isinstance(loaded_obj, dict):
+                        logger.info(f"Archivo contiene diccionario con {len(loaded_obj)} claves: {list(loaded_obj.keys())[:5]}")
+                        for key in ['model', 'pipeline', 'estimator', 'final_model', 'best_model']:
+                            if key in loaded_obj:
+                                loaded_obj = loaded_obj[key]
+                                logger.info(f"Modelo encontrado en clave '{key}': {type(loaded_obj)}")
+                                break
+                        if isinstance(loaded_obj, dict):
+                            for key, value in loaded_obj.items():
+                                if hasattr(value, 'predict') or hasattr(value, 'predict_proba'):
+                                    loaded_obj = value
+                                    logger.info(f"Modelo encontrado en clave '{key}': {type(loaded_obj)}")
+                                    break
+                    
+                    self.model = loaded_obj
                     logger.info("Modelo cargado con pickle.load()")
             except Exception as joblib_err:
                 logger.warning(f"Fallo joblib.load({self.model_path}): {joblib_err}. Probando con pickle.load()...")
                 import pickle
                 with open(self.model_path, "rb") as f:
-                    self.model = pickle.load(f)
+                    loaded_obj = pickle.load(f)
+                
+                # Manejar diccionarios o múltiples objetos
+                if isinstance(loaded_obj, dict):
+                    logger.info(f"Archivo contiene diccionario con {len(loaded_obj)} claves: {list(loaded_obj.keys())[:5]}")
+                    for key in ['model', 'pipeline', 'estimator', 'final_model', 'best_model']:
+                        if key in loaded_obj:
+                            loaded_obj = loaded_obj[key]
+                            logger.info(f"Modelo encontrado en clave '{key}': {type(loaded_obj)}")
+                            break
+                    if isinstance(loaded_obj, dict):
+                        for key, value in loaded_obj.items():
+                            if hasattr(value, 'predict') or hasattr(value, 'predict_proba'):
+                                loaded_obj = value
+                                logger.info(f"Modelo encontrado en clave '{key}': {type(loaded_obj)}")
+                                break
+                
+                self.model = loaded_obj
                 logger.info("Modelo cargado con pickle.load()")
 
             logger.info(f"Modelo cargado: tipo={type(self.model)}")
             logger.info(f"Módulo del modelo: {type(self.model).__module__}")
+
+            # CRÍTICO: Verificar que el modelo sea un estimador válido (tiene métodos predict/predict_proba)
+            # Si es un numpy.ndarray, algo salió mal con la carga
+            if isinstance(self.model, np.ndarray):
+                error_msg = (
+                    f"ERROR CRÍTICO: El modelo cargado es un numpy.ndarray, no un estimador válido. "
+                    f"El archivo {self.model_path} puede estar corrupto o contener solo una parte del modelo. "
+                    f"Se esperaba un Pipeline de sklearn o un estimador con métodos predict() y predict_proba()."
+                )
+                logger.error(error_msg)
+                raise ValueError(error_msg)
+            
+            # Verificar que el modelo tenga al menos el método predict
+            if not hasattr(self.model, 'predict'):
+                error_msg = (
+                    f"ERROR CRÍTICO: El modelo cargado no tiene el método 'predict()'. "
+                    f"Tipo del modelo: {type(self.model)}, atributos: {dir(self.model)[:10]}..."
+                )
+                logger.error(error_msg)
+                raise ValueError(error_msg)
 
             # Detectar si es un Pipeline completo (PyCaret o sklearn) que incluye imputación, balanceo,
             # normalización y PCA. En ese caso, NO debemos aplicar un preprocesador externo.
