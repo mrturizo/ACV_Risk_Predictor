@@ -5,10 +5,52 @@ from typing import Dict, Any, Optional, List
 import pandas as pd
 import numpy as np
 import logging
+import sys
+import types
 
 # Configurar logging primero
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# CRÍTICO: Crear módulos mock de PyCaret ANTES de intentar importarlo
+# Esto permite que pickle/joblib pueda deserializar modelos sin PyCaret instalado
+def _create_pycaret_mocks():
+    """Crea módulos mock de PyCaret para permitir deserialización sin PyCaret instalado."""
+    # Crear módulo mock para pycaret
+    if 'pycaret' not in sys.modules:
+        pycaret_mock = types.ModuleType('pycaret')
+        sys.modules['pycaret'] = pycaret_mock
+    
+    # Crear módulo mock para pycaret.internal
+    if 'pycaret.internal' not in sys.modules:
+        pycaret_internal_mock = types.ModuleType('pycaret.internal')
+        sys.modules['pycaret.internal'] = pycaret_internal_mock
+    
+    # Crear módulo mock para pycaret.internal.pipeline
+    if 'pycaret.internal.pipeline' not in sys.modules:
+        pycaret_pipeline_mock = types.ModuleType('pycaret.internal.pipeline')
+        sys.modules['pycaret.internal.pipeline'] = pycaret_pipeline_mock
+        
+        # Crear clases mock básicas que pickle pueda usar
+        # Estas clases no necesitan implementación real, solo existir para pickle
+        class MockPyCaretPipeline:
+            """Clase mock para Pipeline de PyCaret."""
+            pass
+        
+        class MockPyCaretTransformer:
+            """Clase mock para Transformers de PyCaret."""
+            pass
+        
+        # Asignar las clases mock a los módulos
+        pycaret_pipeline_mock.Pipeline = MockPyCaretPipeline
+        pycaret_pipeline_mock.Transformer = MockPyCaretTransformer
+    
+    # Crear módulo mock para pycaret.classification
+    if 'pycaret.classification' not in sys.modules:
+        pycaret_classification_mock = types.ModuleType('pycaret.classification')
+        sys.modules['pycaret.classification'] = pycaret_classification_mock
+    
+    logger.info("Módulos mock de PyCaret creados para deserialización")
 
 try:
     from pycaret.classification import load_model, predict_model
@@ -18,6 +60,9 @@ except ImportError:
     # NOTA: PyCaret no es necesario para usar el modelo. El modelo se carga con joblib
     # y se usa directamente con .predict() y .predict_proba() del Pipeline de sklearn.
     logger.info("PyCaret no está instalado. El modelo se cargará con joblib (no se requiere PyCaret).")
+    
+    # Crear los mocks inmediatamente si PyCaret no está disponible
+    _create_pycaret_mocks()
 
 from core import MODELS_DIR
 from core.config_features import MODEL_INPUT_COLUMNS
@@ -78,14 +123,33 @@ class StrokePredictor:
             logger.info(f"Cargando modelo desde: {self.model_path}")
             
             # Cargar modelo desde disco.
-            # NOTA: Muchos modelos finales (como lr_pca25_cw.pkl) fueron serializados
-            # con joblib. Si se cargan con pickle directamente, se obtiene un
-            # numpy.ndarray en lugar del Pipeline, lo que provoca errores como
-            # `'numpy.ndarray' object has no attribute 'predict'`.
+            # NOTA: El modelo lr_pca25_cw.pkl fue serializado con PyCaret pero es un Pipeline de sklearn.
+            # Podemos cargarlo con joblib sin necesidad de PyCaret instalado, siempre que
+            # hayamos creado los módulos mock de PyCaret arriba.
             try:
                 import joblib
                 self.model = joblib.load(self.model_path)
                 logger.info("Modelo cargado con joblib.load()")
+            except (ModuleNotFoundError, ImportError) as import_err:
+                # Si el error es por falta de PyCaret, los mocks deberían haberlo resuelto
+                # pero si aún falla, intentar recrear mocks y cargar con pickle
+                if 'pycaret' in str(import_err).lower():
+                    logger.warning(f"Error de importación de PyCaret durante joblib.load: {import_err}")
+                    logger.info("Recreando mocks y intentando cargar con pickle...")
+                    # Asegurar que los mocks estén creados (recrearlos por si acaso)
+                    if not PYCARET_AVAILABLE:
+                        _create_pycaret_mocks()
+                    import pickle
+                    with open(self.model_path, "rb") as f:
+                        self.model = pickle.load(f)
+                    logger.info("Modelo cargado con pickle.load() después de recrear mocks")
+                else:
+                    # Si es otro error de importación, intentar con pickle
+                    logger.warning(f"Fallo joblib.load({self.model_path}): {import_err}. Probando con pickle.load()...")
+                    import pickle
+                    with open(self.model_path, "rb") as f:
+                        self.model = pickle.load(f)
+                    logger.info("Modelo cargado con pickle.load()")
             except Exception as joblib_err:
                 logger.warning(f"Fallo joblib.load({self.model_path}): {joblib_err}. Probando con pickle.load()...")
                 import pickle
@@ -94,16 +158,20 @@ class StrokePredictor:
                 logger.info("Modelo cargado con pickle.load()")
 
             logger.info(f"Modelo cargado: tipo={type(self.model)}")
+            logger.info(f"Módulo del modelo: {type(self.model).__module__}")
 
-            # Detectar si es un Pipeline completo de PyCaret (incluye imputación, balanceo,
-            # normalización y PCA). En ese caso, NO debemos aplicar un preprocesador externo.
+            # Detectar si es un Pipeline completo (PyCaret o sklearn) que incluye imputación, balanceo,
+            # normalización y PCA. En ese caso, NO debemos aplicar un preprocesador externo.
             model_module = type(self.model).__module__
-            if model_module.startswith("pycaret.internal.pipeline"):
+            # Un Pipeline tiene el atributo 'steps' que contiene los pasos del pipeline
+            is_pipeline = hasattr(self.model, 'steps') or hasattr(self.model, 'named_steps')
+            
+            if model_module.startswith("pycaret.internal.pipeline") or is_pipeline:
                 self.is_pycaret_model = True
                 self.preprocessor = None
                 self.preprocessor_path = None
                 logger.info(
-                    "Modelo detectado como Pipeline completo de PyCaret; "
+                    "Modelo detectado como Pipeline completo; "
                     "se usará su preprocesamiento interno (imputación + zscore + PCA)."
                 )
                 # No cargar preprocesador externo ni reparar scaler.
