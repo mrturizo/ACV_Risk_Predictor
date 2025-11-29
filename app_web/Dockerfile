@@ -1,7 +1,7 @@
 # Dockerfile para la aplicación web Streamlit
 # Optimizado para Streamlit Cloud con PyCaret
 
-FROM python:3.9-slim
+FROM python:3.10-slim
 
 # Instalar dependencias del sistema necesarias para PyCaret y scikit-learn
 RUN apt-get update && apt-get install -y \
