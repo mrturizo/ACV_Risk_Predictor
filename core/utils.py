@@ -3,6 +3,7 @@
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Union
 import pandas as pd
+import numpy as np
 import json
 import logging
 
@@ -332,3 +333,36 @@ def validate_data_ranges(
         'errors': errors,
         'warnings': warnings
     }
+
+
+def transform_age_to_category(age: Union[int, float]) -> float:
+    """Transforma la edad continua a un valor normalizado en el rango 0-3.
+    
+    La edad se trata como variable continua y se normaliza al rango [0, 3]
+    para mantener compatibilidad con el modelo que espera valores en ese rango.
+    
+    Args:
+        age: Edad en años (valor continuo de 0 a 120).
+        
+    Returns:
+        Edad normalizada en el rango [0, 3] como float.
+        
+    Raises:
+        ValueError: Si la edad está fuera del rango válido (0-120).
+    """
+    if age < 0 or age > 120:
+        raise ValueError(f"La edad debe estar entre 0 y 120 años. Valor recibido: {age}")
+    
+    # Normalizar edad al rango [0, 3]
+    # Asumiendo que el rango de edad del dataset es aproximadamente 18-80 años
+    # Normalización lineal: (age - min_age) / (max_age - min_age) * 3
+    min_age = 18.0  # Edad mínima típica en NHANES
+    max_age = 80.0  # Edad máxima típica en NHANES
+    
+    # Clampear valores fuera del rango típico
+    age_clamped = max(min_age, min(age, max_age))
+    
+    # Normalizar al rango [0, 3]
+    normalized_age = ((age_clamped - min_age) / (max_age - min_age)) * 3.0
+    
+    return float(normalized_age)

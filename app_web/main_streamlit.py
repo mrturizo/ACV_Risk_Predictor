@@ -20,6 +20,7 @@ from core import (
     load_data_file,
     validate_data_structure,
     get_recommendations,
+    transform_age_to_category,
     MODELS_DIR,
     DATA_UPLOADS,
     DATA_OUTPUTS,
@@ -475,6 +476,9 @@ def render_manual_form():
                     st.write(f"- Colesterol Alto: {high_cholesterol}")
                     st.write(f"- Enfermedad Coronaria: {coronary_heart_disease}")
                 
+                # Transformar edad continua a categoría (1, 2, o 3)
+                age_category = transform_age_to_category(age)
+                
                 # Crear diccionario con los datos ingresados
                 data_dict = {
                     "sleep time": [sleep_time],
@@ -493,7 +497,7 @@ def render_manual_form():
                     "Potassium": [potassium],
                     "Sodium": [sodium],
                     "gender": [gender],
-                    "age": [age],
+                    "age": [age_category],  # Usar categoría transformada
                     "Race": [Race],
                     "Marital status": [Marital_status],
                     "alcohol": [alcohol],

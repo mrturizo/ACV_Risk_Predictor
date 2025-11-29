@@ -17,6 +17,7 @@ from core import (
     ReportGenerator,
     load_data_file,
     get_recommendations,
+    transform_age_to_category,
     DATA_UPLOADS,
     DATA_OUTPUTS,
     MODEL_INPUT_COLUMNS,
@@ -656,7 +657,7 @@ class StrokeApp(tk.Tk):
 
                 # Demográficas
                 "gender": int(self.gender_var.get()),
-                "age": age,
+                "age": transform_age_to_category(int(age)),
                 "Race": int(self.race_var.get()),
                 "Marital status": int(self.marital_status_var.get()),
 

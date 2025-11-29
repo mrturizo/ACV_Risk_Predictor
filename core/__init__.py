@@ -27,6 +27,7 @@ from core.utils import (
     validate_data_ranges,
     get_recommendations,
     load_field_config,
+    transform_age_to_category,
 )
 
 __version__ = "0.1.0"
@@ -39,6 +40,7 @@ __all__ = [
     "validate_data_ranges",
     "get_recommendations",
     "load_field_config",
+    "transform_age_to_category",
     "MODEL_INPUT_COLUMNS",
     "TARGET_COLUMN",
     "PROJECT_ROOT",
