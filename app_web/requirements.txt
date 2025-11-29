@@ -1,12 +1,13 @@
 # Streamlit Web App Requirements
 # Para deploy en Streamlit Cloud
-# Sin PyCaret - el modelo es sklearn y se carga con pickle estándar
+# PyCaret es necesario para cargar modelos lr_pca25_cw.pkl (PyCaret Pipeline)
 # Versiones con wheels precompilados para evitar errores de compilación
 
 streamlit>=1.28.0
 pandas>=2.2.0
 numpy>=1.26.0
 scikit-learn>=1.2.0
+pycaret>=3.0.0
 joblib>=1.3.0
 plotly>=5.14.0
 reportlab>=3.6.0
