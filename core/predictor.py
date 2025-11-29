@@ -171,7 +171,7 @@ except ImportError:
     _create_pycaret_mocks()
     
     # Instalar import hook para interceptar importaciones de PyCaret durante pickle.load
-    global _pycaret_import_hook_installed
+    # NOTA: No necesitamos 'global' aquí porque estamos en el nivel del módulo, no dentro de una función
     if not _pycaret_import_hook_installed:
         sys.meta_path.insert(0, PyCaretImportHook())
         _pycaret_import_hook_installed = True
